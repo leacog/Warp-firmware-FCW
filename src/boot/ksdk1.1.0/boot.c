@@ -322,6 +322,15 @@ LLWU_IRQHandler(void)
 	LLWU_HAL_ClearExternalPinWakeupFlag(LLWU_BASE, (llwu_wakeup_pin_t)BOARD_SW_LLWU_EXT_PIN);
 }
 
+volatile bool adcRdyFlag = 0;
+volatile uint16_t adcRawValue = 0;
+
+void ADC0_IRQHandler(void)
+{
+    adcRawValue = ADC16_DRV_GetConvValueRAW(0, 0);
+    adcRdyFlag = true;
+}
+
 /*
  *	IRQ handler for the interrupt from RTC, which we wire up
  *	to PTA0/IRQ0/LLWU_P7 in Glaux. BOARD_SW_LLWU_IRQ_HANDLER
@@ -2042,9 +2051,7 @@ main(void)
 		while(1){
 			startTime = OSA_TimeGetMsec();
 			for(int iii = 0; iii < 10000; iii++){
-				while(!adcRdyFlag){
-
-				}
+				while(!adcRdyFlag){}
 				adcRdyFlag = false;
 			}
 			stopTime = OSA_TimeGetMsec();	
