@@ -2037,10 +2037,15 @@ main(void)
 		ADC16_init_continuous(instance, chnGroup, chn);
 		warpPrint("\r Set up ADC");
 		uint32_t adcReading = 0;
+		uint32_t startTime, stopTime;
 
 		while(1){
-			adcReading = ADC16_poll_blocking(instance, chnGroup);	
-			warpPrint("\rADC value: %u", adcReading);
+			startTime = OSA_TimeGetMsec();
+			for(int iii = 0; iii < 10000; iii++){
+				adcReading = ADC16_poll_blocking(instance, chnGroup);
+			}
+			stopTime = OSA_TimeGetMsec();	
+			warpPrint("\nTime Diff: %u", stopTime-startTime);
 			OSA_TimeDelay(200);
 		}		
 
