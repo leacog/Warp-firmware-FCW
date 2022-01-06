@@ -30,3 +30,8 @@ void ADC16_init_continuous(uint32_t instance, uint32_t chnGroup, uint8_t chn)
 	ADC16_DRV_ConfigConvChn(instance, chnGroup, &MyChnConfig);
 };
 
+uint32_t ADC16_poll_blocking(uint32_t instance, uint32_t chnGroup){
+	ADC16_DRV_WaitConvDone(instance, chnGroup);
+	uint16_t adcValue = ADC16_DRV_GetConvValueRAW(instance, chnGroup);
+	return ADC16_DRV_ConvRAWData(adcValue, false, kAdcResolutionBitOfSingleEndAs12); 
+}

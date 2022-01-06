@@ -2036,8 +2036,15 @@ main(void)
 		uint8_t  chn      = 2; //Sets ADC channel up to PTA9
 		ADC16_init_continuous(instance, chnGroup, chn);
 		warpPrint("\r Set up ADC");
-		devSSD1331init();
-		
+		uint32_t adcReading = 0;
+
+		while(1){
+			adcReading = ADC16_poll_blocking(instance, chnGroup);	
+			warpPrint("ADC value: %u", adcReading);
+			OSA_TimeDelay(200);
+		}		
+
+
 		printBootSplash(gWarpCurrentSupplyVoltage, menuRegisterAddress, &powerManagerCallbackStructure);
 		warpPrint("\rSelect:\n");
 		warpPrint("\r- 'a': set default sensor.\n");
