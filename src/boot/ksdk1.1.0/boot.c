@@ -2019,7 +2019,7 @@ main(void)
 			if (status != kWarpStatusOK)
 			{
 				warpPrint("configureSensorBME680() failed...\n");
-			}
+			
 			warpDisableI2Cpins();
 			blinkLED(kGlauxPinLED);
 
@@ -2044,14 +2044,21 @@ main(void)
 		uint32_t instance = 0;
 		uint32_t chnGroup = 0;
 		uint8_t  chn      = 2; //Sets ADC channel up to PTA9
-		
-		uint32_t xarray[8] = {0,1,2,3,4,5,6,7};
-		uint32_t resultArray[8] = {0};
-		FFT(xarray, resultArray);
-		for(int ij = 0; ij < 0; ij++){
-			warpPrint("result[%i]: %u", ij, resultArray[ij]);
+		uint32_t startTime, stopTime;	
+		startTime = OSA_TimeGetMsec();
+		for(int i=0; i<100000; i++){
+		long xarray[8] = {0,1,2,3,4,5,6,7};
+		long resultArray[8] = {0};
+		FFT(&xarray[0], &resultArray[0]);
 		}
-
+		stopTime = OSA_TimeGetMsec();
+		warpPrint("\nFFTTIME: %u", (uint32_t)((stopTime-startTime)));
+		/*
+		for(int ij = 0; ij < 8; ij++){
+			warpPrint("\nresult: %d", resultArray[ij]);
+		}
+		*/
+		while(1){}
 		dumpProcessorState();
 		warpSetLowPowerMode(kWarpPowerModeRUN, 0 /* sleep seconds : irrelevant here */);
 		if (status != kWarpStatusOK)
@@ -2064,7 +2071,6 @@ main(void)
 		ADC16_init_continuous(instance, chnGroup, chn);
 		warpPrint("\n Set up ADC");
 		uint32_t adcReading = 0;
-		uint32_t startTime, stopTime;
 		while(1){
 			startTime = OSA_TimeGetMsec();
 			int numSamples = 10000;

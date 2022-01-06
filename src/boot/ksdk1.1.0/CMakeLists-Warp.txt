@@ -114,6 +114,8 @@ ADD_EXECUTABLE(Warp
     "${ProjDirPath}/../../src/devSSD1331.c"
     "${ProjDirPath}/../../src/ADC.c"
     "${ProjDirPath}/../../src/ADC.h"
+    "${ProjDirPath}/../../src/FFT.c"
+    "${ProjDirPath}/../../src/FFT.h"
 #   "${ProjDirPath}/../../src/devMAX11300.c
     "${ProjDirPath}/../../src/SEGGER_RTT.c"
     "${ProjDirPath}/../../src/SEGGER_RTT_printf.c"
