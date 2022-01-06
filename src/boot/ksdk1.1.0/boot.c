@@ -2043,19 +2043,28 @@ main(void)
 		uint32_t instance = 0;
 		uint32_t chnGroup = 0;
 		uint8_t  chn      = 2; //Sets ADC channel up to PTA9
+		dumpProcessorState();
+		warpSetLowPowerMode(kWarpPowerModeRUN, 0 /* sleep seconds : irrelevant here */);
+		if (status != kWarpStatusOK)
+		{
+			warpPrint("warpSetLowPowerMode(kWarpPowerModeRUN, 0 /* sleep seconds : irrelevant here */)() failed...\n");
+		}
+		OSA_TimeDelay(200);
+		dumpProcessorState();
+		OSA_TimeDelay(300);
 		ADC16_init_continuous(instance, chnGroup, chn);
-		warpPrint("\r Set up ADC");
+		warpPrint("\n Set up ADC");
 		uint32_t adcReading = 0;
 		uint32_t startTime, stopTime;
-
 		while(1){
 			startTime = OSA_TimeGetMsec();
-			for(int iii = 0; iii < 10000; iii++){
+			int numSamples = 10000;
+			for(int iii = 0; iii < numSamples; iii++){
 				while(!adcRdyFlag){}
 				adcRdyFlag = false;
 			}
 			stopTime = OSA_TimeGetMsec();	
-			warpPrint("\nTime Diff: %u", stopTime-startTime);
+			warpPrint("\nSamp Rate: %u", (uint32_t)(numSamples*1000) / (stopTime-startTime));
 			OSA_TimeDelay(200);
 		}		
 
