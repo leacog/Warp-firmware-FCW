@@ -21,6 +21,7 @@ void ADC16_init_continuous(uint32_t instance, uint32_t chnGroup, uint8_t chn)
 	// Initialize the ADC converter. //
 	ADC16_DRV_StructInitUserConfigDefault(&MyAdcUserConfig);
 	MyAdcUserConfig.continuousConvEnable = true; // Enable continuous conversion. //
+	MyAdcUserConfig.clkSrcMode = kAdcClkSrcOfBusOrAltClk2; //Set bus clock divided by two
 	ADC16_DRV_Init(instance, &MyAdcUserConfig);
 	// Configure the ADC channel and take an initial trigger. //
 	MyChnConfig.chnNum = chn;
@@ -28,6 +29,8 @@ void ADC16_init_continuous(uint32_t instance, uint32_t chnGroup, uint8_t chn)
 	MyChnConfig.intEnable = false;
 	//MyChnConfig.chnMux = kAdcChnMuxOfA; // No MUX mode for our MCU
 	ADC16_DRV_ConfigConvChn(instance, chnGroup, &MyChnConfig);
+	adc16_hw_average_count_mode_t mode = kAdcHwAverageCountOf32;
+	ADC16_DRV_EnableHwAverage(instance, mode);
 };
 
 uint32_t ADC16_poll_blocking(uint32_t instance, uint32_t chnGroup){

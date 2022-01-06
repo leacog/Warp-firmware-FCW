@@ -2040,7 +2040,7 @@ main(void)
 
 		while(1){
 			adcReading = ADC16_poll_blocking(instance, chnGroup);	
-			warpPrint("ADC value: %u", adcReading);
+			warpPrint("\rADC value: %u", adcReading);
 			OSA_TimeDelay(200);
 		}		
 
