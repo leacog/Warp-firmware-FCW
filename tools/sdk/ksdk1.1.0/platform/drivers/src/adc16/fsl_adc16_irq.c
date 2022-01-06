@@ -31,14 +31,21 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "fsl_adc16_driver.h"
+#include "ADC.h"
 
 /******************************************************************************
  * IRQ Handlers
  *****************************************************************************/
 /* ADC16 IRQ handler that would cover the same name's APIs in startup code */
+
+volatile bool adcRdyFlag = 0;
+volatile uint16_t adcRawValue = 0;
+
 void ADC0_IRQHandler(void)
 {
     /* Add user-defined ISR for ADC0. */
+    adcRawValue = ADC16_DRV_GetConvValueRAW(0, 0);
+    adcRdyFlag = true;
 }
 
 #if (HW_ADC_INSTANCE_COUNT > 1U)

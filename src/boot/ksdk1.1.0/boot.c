@@ -2042,7 +2042,10 @@ main(void)
 		while(1){
 			startTime = OSA_TimeGetMsec();
 			for(int iii = 0; iii < 10000; iii++){
-				adcReading = ADC16_poll_blocking(instance, chnGroup);
+				while(!adcRdyFlag){
+
+				}
+				adcRdyFlag = false;
 			}
 			stopTime = OSA_TimeGetMsec();	
 			warpPrint("\nTime Diff: %u", stopTime-startTime);
