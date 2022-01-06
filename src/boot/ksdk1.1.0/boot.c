@@ -2034,7 +2034,7 @@ main(void)
 		uint32_t instance = 0;
 		uint32_t chnGroup = 0;
 		uint8_t  chn      = 2; //Sets ADC channel up to PTA9
-		ADC_init_continuous(instance, chnGroup, chn);
+		ADC16_init_continuous(instance, chnGroup, chn);
 		warpPrint("\r Set up ADC");
 		devSSD1331init();
 		
