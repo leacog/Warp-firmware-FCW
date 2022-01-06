@@ -63,6 +63,7 @@
 #include "SEGGER_RTT.h"
 #include "fsl_adc16_driver.h"
 #include "ADC.h"
+#include "FFT.h"
 
 #define							kWarpConstantStringI2cFailure		"\rI2C failed, reg 0x%02x, code %d\n"
 #define							kWarpConstantStringErrorInvalidVoltage	"\rInvalid supply voltage [%d] mV!"
@@ -2043,6 +2044,14 @@ main(void)
 		uint32_t instance = 0;
 		uint32_t chnGroup = 0;
 		uint8_t  chn      = 2; //Sets ADC channel up to PTA9
+		
+		uint32_t xarray[8] = {0,1,2,3,4,5,6,7};
+		uint32_t resultArray[8] = {0};
+		FFT(xarray, resultArray);
+		for(int ij = 0; ij < 0; ij++){
+			warpPrint("result[%i]: %u", ij, resultArray[ij]);
+		}
+
 		dumpProcessorState();
 		warpSetLowPowerMode(kWarpPowerModeRUN, 0 /* sleep seconds : irrelevant here */);
 		if (status != kWarpStatusOK)
