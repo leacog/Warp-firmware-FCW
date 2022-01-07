@@ -64,32 +64,14 @@
 #include "complex.h"
 
 
-
-volatile lpuart_user_config_t				lpuartUserConfig;
-volatile lpuart_state_t					lpuartState;
-
-
 volatile bool						gWarpBooted				= false;
-volatile uint32_t					gWarpUartBaudRateBps			= kWarpDefaultUartBaudRateBps;
-volatile uint32_t					gWarpSleeptimeSeconds			= kWarpDefaultSleeptimeSeconds;
 volatile WarpModeMask					gWarpMode				= kWarpModeDisableAdcOnSleep;
 volatile uint32_t					gWarpUartTimeoutMilliseconds		= kWarpDefaultUartTimeoutMilliseconds;
 volatile uint32_t					gWarpMenuPrintDelayMilliseconds		= kWarpDefaultMenuPrintDelayMilliseconds;
 char							gWarpPrintBuffer[kWarpDefaultPrintBufferSizeBytes];
 
-/*
- *	Since only one SPI transaction is ongoing at a time in our implementation
- */
-
 static void						lowPowerPinStates(void);
 static void						dumpProcessorState(void);
-
-/*
- *	TODO: change the following to take byte arrays
- */
-
-void							warpLowPowerSecondsSleep(uint32_t sleepSeconds, bool forceAllPinsIntoLowPowerState);
-
 
 
 /*
@@ -201,162 +183,6 @@ callback0(power_manager_notify_struct_t *  notify, power_manager_callback_data_t
 
 	return status;
 }
-/*
- *	Derived from KSDK power_manager_demo.c <<END
- */
-
-
-
-void
-sleepUntilReset(void)
-{
-	while (1)
-	{
-		#if (WARP_BUILD_ENABLE_DEVSI4705)
-			GPIO_DRV_SetPinOutput(kWarpPinSI4705_nRST);
-		#endif
-
-		warpLowPowerSecondsSleep(1, false /* forceAllPinsIntoLowPowerState */);
-
-		#if (WARP_BUILD_ENABLE_DEVSI4705)
-			GPIO_DRV_ClearPinOutput(kWarpPinSI4705_nRST);
-		#endif
-
-		warpLowPowerSecondsSleep(60, true /* forceAllPinsIntoLowPowerState */);
-	}
-}
-
-
-void
-disableLPUARTpins(void)
-{
-	/*
-	 *	LPUART deinit
-	 */
-	LPUART_DRV_Deinit(0);
-
-	/*
-	 *	Set UART pin association. See, e.g., page 99 in
-	 *
-	 *		https://www.nxp.com/docs/en/reference-manual/KL03P24M48SF0RM.pdf
-	 *
-	 *	Setup:
-	 *		PTB3/kWarpPinI2C0_SCL_UART_TX for UART TX
-	 *		PTB4/kWarpPinI2C0_SCL_UART_RX for UART RX
-
-//TODO: we don't use the HW flow control and that messes with the SPI any way
- *		PTA6/kWarpPinSPI_MISO_UART_RTS for UART RTS
- *		PTA7/kWarpPinSPI_MOSI_UART_CTS for UART CTS
-	 */
-	PORT_HAL_SetMuxMode(PORTB_BASE, 3, kPortPinDisabled);
-	PORT_HAL_SetMuxMode(PORTB_BASE, 4, kPortPinDisabled);
-
-//TODO: we don't use flow-control
-	PORT_HAL_SetMuxMode(PORTA_BASE, 6, kPortMuxAsGpio);
-	PORT_HAL_SetMuxMode(PORTA_BASE, 7, kPortMuxAsGpio);
-
-	GPIO_DRV_ClearPinOutput(kWarpPinSPI_MISO_UART_RTS);
-	GPIO_DRV_ClearPinOutput(kWarpPinSPI_MOSI_UART_CTS);
-
-	/*
-	 *	Disable LPUART CLOCK
-	*/
-	CLOCK_SYS_DisableLpuartClock(0);
-}
-
-
-
-WarpStatus
-sendBytesToUART(uint8_t *  bytes, size_t nbytes)
-{
-	lpuart_status_t	status;
-
-	status = LPUART_DRV_SendDataBlocking(0, bytes, nbytes, gWarpUartTimeoutMilliseconds);
-	if (status != 0)
-	{
-		return kWarpStatusDeviceCommunicationFailed;
-	}
-
-	return kWarpStatusOK;
-}
-
-
-	void
-	lowPowerPinStates(void)
-	{
-		/*
-		 *	Following Section 5 of "Power Management for Kinetis L Family" (AN5088.pdf),
-		 *	we configure all pins as output and set them to a known state. We choose
-		 *	to set them all to '0' since it happens that the devices we want to keep
-		 *	deactivated (SI4705) also need '0'.
-		 */
-
-		/*
-		 *			PORT A
-		 */
-		/*
-		 *	For now, don't touch the PTA0/1/2 SWD pins. Revisit in the future.
-		 */
-		PORT_HAL_SetMuxMode(PORTA_BASE, 0, kPortMuxAlt3);
-		PORT_HAL_SetMuxMode(PORTA_BASE, 1, kPortMuxAlt3);
-		PORT_HAL_SetMuxMode(PORTA_BASE, 2, kPortMuxAlt3);
-
-		/*
-		 *	PTA3 and PTA4 are the EXTAL0/XTAL0. They are also connected to the clock output
-		 *	of the RV8803 (and PTA4 is a sacrificial pin for PTA3), so do not want to drive them.
-		 *	We however have to configure PTA3 to Alt0 (kPortPinDisabled) to get the EXTAL0
-		 *	functionality.
-		 *
-		 *	NOTE:	kPortPinDisabled is the equivalent of `Alt0`
-		 */
-		PORT_HAL_SetMuxMode(PORTA_BASE, 3, kPortPinDisabled);
-		PORT_HAL_SetMuxMode(PORTA_BASE, 4, kPortPinDisabled);
-
-		/*
-		 *	Disable PTA5
-		 *
-		 *	NOTE: Enabling this significantly increases current draw
-		 *	(from ~180uA to ~4mA) and we don't need the RTC on revC.
-		 *
-		 */
-		PORT_HAL_SetMuxMode(PORTA_BASE, 5, kPortPinDisabled);
-
-		/*
-		 *	Section 2.6 of Kinetis Energy Savings – Tips and Tricks says
-		 *
-		 *		"Unused pins should be configured in the disabled state, mux(0),
-		 *		to prevent unwanted leakage (potentially caused by floating inputs)."
-		 *
-		 *	However, other documents advice to place pin as GPIO and drive low or high.
-		 *	For now, leave disabled. Filed issue #54 low-power pin states to investigate.
-		 */
-		PORT_HAL_SetMuxMode(PORTA_BASE, 6, kPortPinDisabled);
-		PORT_HAL_SetMuxMode(PORTA_BASE, 7, kPortPinDisabled);
-		PORT_HAL_SetMuxMode(PORTA_BASE, 8, kPortPinDisabled);
-		PORT_HAL_SetMuxMode(PORTA_BASE, 9, kPortPinDisabled);
-
-		/*
-		 *	NOTE: The KL03 has no PTA10 or PTA11
-		 */
-		PORT_HAL_SetMuxMode(PORTA_BASE, 12, kPortPinDisabled);
-
-
-		/*
-		 *			PORT B
-		 */
-		PORT_HAL_SetMuxMode(PORTB_BASE, 0, kPortPinDisabled);
-		PORT_HAL_SetMuxMode(PORTB_BASE, 1, kPortPinDisabled);
-		PORT_HAL_SetMuxMode(PORTB_BASE, 2, kPortPinDisabled);
-		PORT_HAL_SetMuxMode(PORTB_BASE, 3, kPortPinDisabled);
-		PORT_HAL_SetMuxMode(PORTB_BASE, 4, kPortPinDisabled);
-		PORT_HAL_SetMuxMode(PORTB_BASE, 5, kPortPinDisabled);
-		PORT_HAL_SetMuxMode(PORTB_BASE, 6, kPortPinDisabled);
-		PORT_HAL_SetMuxMode(PORTB_BASE, 7, kPortPinDisabled);
-		PORT_HAL_SetMuxMode(PORTB_BASE, 10, kPortPinDisabled);
-		PORT_HAL_SetMuxMode(PORTB_BASE, 11, kPortPinDisabled);
-		PORT_HAL_SetMuxMode(PORTB_BASE, 13, kPortPinDisabled);
-	}
-
 
 
 void
@@ -671,12 +497,9 @@ main(void)
 	 *	so until we call it pins are in their default state.
 	 */
 	warpPrint("About to lowPowerPinStates()... ");
-	lowPowerPinStates();
+	//lowPowerPinStates();
 	warpPrint("done.\n");
 
-	/*
-	 *	Toggle LED3 (kWarpPinSI4705_nRST on Warp revB, kGlauxPinLED on Glaux)
-	 */
 	#if (WARP_BUILD_ENABLE_GLAUX_VARIANT)
 		blinkLED(kGlauxPinLED);
 		blinkLED(kGlauxPinLED);
@@ -688,27 +511,13 @@ main(void)
 	#endif
 
 	/*
-	 *	If WARP_BUILD_DISABLE_SUPPLIES_BY_DEFAULT, will turn of the supplies
-	 *	below which also means that the console via BLE will be disabled as
-	 *	the BLE module will be turned off by default.
-	 */
-	#if (WARP_BUILD_DISABLE_SUPPLIES_BY_DEFAULT)
-		/*
-		*	Make sure sensor supplies are off.
-		*
-		*	(There's no point in calling activateAllLowPowerSensorModes())
-		*/
-		warpPrint("Disabling sensor supply... \n");
-		warpDisableSupplyVoltage();
-		warpPrint("done.\n");
-	#endif
-
-	/*
 	 *	At this point, we consider the system "booted" and, e.g., warpPrint()s
 	 *	will also be sent to the BLE if that is compiled in.
 	 */
 	gWarpBooted = true;
-	warpPrint("Boot done.\n");
+	warpPrint("Boot done...\n");
+	OSA_TimeDelay(1000);
+	warpPrint("Starting program! \n");
 	
 	while (1)
 	{
@@ -717,26 +526,8 @@ main(void)
 		 *	want to use menu to progressiveley change the machine state with various
 		 *	commands.
 		 */
-		warpPrint("\r Testprint");
-		uint32_t instance = 0;
-		uint32_t chnGroup = 0;
-		uint8_t  chn      = 2; //Sets ADC channel up to PTA9
 		uint32_t startTime, stopTime;	
-		startTime = OSA_TimeGetMsec();
-		int n = 32;
-		long complex xarray[n];
-		for(int i = 0; i<n; i++){
-			xarray[i] = i;
-		}
-		FFT(&xarray[0],n);
-		stopTime = OSA_TimeGetMsec();
-		warpPrint("\nFFTTIME: %u", (uint32_t)((stopTime-startTime)));
-		
-		for(int ij = 0; ij < n; ij++){
-			warpPrint("\nresult: RE[%d] - IM[%d]", (int)creal(xarray[ij]), (int)cimag(xarray[ij]));
-		}
 	
-		while(1){}
 		dumpProcessorState();
 		warpSetLowPowerMode(kWarpPowerModeRUN, 0 /* sleep seconds : irrelevant here */);
 		if (status != kWarpStatusOK)
@@ -746,20 +537,42 @@ main(void)
 		OSA_TimeDelay(200);
 		dumpProcessorState();
 		OSA_TimeDelay(300);
+		uint32_t instance = 0;
+		uint32_t chnGroup = 0;
+		uint8_t  chn      = 2; //Sets ADC channel up to PTA9
 		ADC16_init_continuous(instance, chnGroup, chn);
 		warpPrint("\n Set up ADC");
 		uint32_t adcReading = 0;
-		while(1){
-			startTime = OSA_TimeGetMsec();
-			int numSamples = 10000;
-			for(int iii = 0; iii < numSamples; iii++){
-				while(!adcRdyFlag){}
-				adcRdyFlag = false;
-			}
-			stopTime = OSA_TimeGetMsec();	
-			warpPrint("\nSamp Rate: %u", (uint32_t)(numSamples*1000) / (stopTime-startTime));
-			OSA_TimeDelay(200);
-		}		
+		startTime = OSA_TimeGetMsec();
+		int numSamples = 10000;
+		for(int iii = 0; iii < numSamples; iii++){
+			while(!adcRdyFlag){}
+			adcRdyFlag = false;
+		}
+		stopTime = OSA_TimeGetMsec();	
+		warpPrint("\nSamp Rate: %u", (uint32_t)(numSamples*1000) / (stopTime-startTime));
+		OSA_TimeDelay(200);
+		startTime = OSA_TimeGetMsec();
+		int n = 32;
+		long complex xarray[n];
+		for(int i = 0; i<n; i++){
+			xarray[i] = i;
+		}
+		FFT(&xarray[0],n);
+		stopTime = OSA_TimeGetMsec();
+		
+		warpPrint("\nFFTTIME: %u", (uint32_t)((stopTime-startTime)));
+		
+		warpSetLowPowerMode(kWarpPowerModeVLPR, 0 /* sleep seconds : irrelevant here */);
+		if (status != kWarpStatusOK)
+		{
+			warpPrint("warpSetLowPowerMode(kWarpPowerModeRUN, 0 /* sleep seconds : irrelevant here */)() failed...\n");
+		}
+
+		for(int ij = 0; ij < n; ij++){
+			warpPrint("\nresult: RE[%d] - IM[%d]", (int)creal(xarray[ij]), (int)cimag(xarray[ij]));
+		}
+		while(1){};
 	}	
 	return 0;
 }

@@ -2,7 +2,7 @@
 #include "complex.h"
 #define PRE_MULT 1000
 
-long complex tf64[32] = { 
+static long complex tf64[32] = { 
 1000     + -0    *I,
 995      + -98   *I,
 981      + -195  *I,
@@ -37,7 +37,7 @@ long complex tf64[32] = {
 -995     + -98   *I
 };
 
-static int BitReverseArray[64] = {0,16,8,24,4,20,12,28,2,18,10,26,6,22,14,30,1,17,9,25,5,21,13,29,3,19,11,27,7,23,15,31,1,33,17,49,9,41,25,57,5,37,21,53,13,45,29,61,3,35,19,51,11,43,27,59,7,39,23,55,15,47,31,63};
+static int BitReverseArray[64] = {0,32,16,48,8,40,24,56,4,36,20,52,12,44,28,60,2,34,18,50,10,42,26,58,6,38,22,54,14,46,30,62,1,33,17,49,9,41,25,57,5,37,21,53,13,45,29,61,3,35,19,51,11,43,27,59,7,39,23,55,15,47,31,63};
 
 void FFT(long complex * x, int N){
 
@@ -69,7 +69,7 @@ void FFT(long complex * x, int N){
 void bitReverse(long complex * x, int N){
   long complex x_temp[N];
   for(int i =0; i < N; i++){
-    x_temp[i] = x[BitReverseArray[i*(32/N)]]; 
+    x_temp[i] = x[BitReverseArray[i*(64/N)]]; 
   }
   for(int i =0; i < N; i++){
     x[i] = x_temp[i]; 
@@ -108,7 +108,6 @@ void FFT16(long complex * x16, long complex * outArray){
 
 //
 void FFTN(long complex * x, int n){
-  warpPrint("\nn=%u", n);
   if(n>2){
     FFTN(&x[0],   n/2);
     FFTN(&x[n/2], n/2);
@@ -116,7 +115,7 @@ void FFTN(long complex * x, int n){
   for(int i=0; i < (n/2); i++){
     long complex x_temp_1 = x[i];
     long complex x_temp_2 = x[i+n/2];    
-    x[i]     = (PRE_MULT * x_temp_1 + tf64[i*(32/n)] * x_temp_2)/PRE_MULT;
-    x[i+n/2] = (PRE_MULT * x_temp_1 - tf64[i*(32/n)] * x_temp_2)/PRE_MULT;
+    x[i]     = (PRE_MULT * x_temp_1 + tf64[i*(64/n)] * x_temp_2)/PRE_MULT;
+    x[i+n/2] = (PRE_MULT * x_temp_1 - tf64[i*(64/n)] * x_temp_2)/PRE_MULT;
   }
 }
