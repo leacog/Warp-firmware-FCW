@@ -48,9 +48,6 @@
 
 #include "fsl_misc_utilities.h"
 #include "fsl_device_registers.h"
-#include "fsl_i2c_master_driver.h"
-#include "fsl_spi_master_driver.h"
-#include "fsl_rtc_driver.h"
 #include "fsl_clock_manager.h"
 #include "fsl_power_manager.h"
 #include "fsl_mcglite_hal.h"
@@ -78,30 +75,14 @@ volatile uint32_t					gWarpSleeptimeSeconds			= kWarpDefaultSleeptimeSeconds;
 volatile WarpModeMask					gWarpMode				= kWarpModeDisableAdcOnSleep;
 volatile uint32_t					gWarpUartTimeoutMilliseconds		= kWarpDefaultUartTimeoutMilliseconds;
 volatile uint32_t					gWarpMenuPrintDelayMilliseconds		= kWarpDefaultMenuPrintDelayMilliseconds;
-volatile uint32_t					gWarpSupplySettlingDelayMilliseconds	= kWarpDefaultSupplySettlingDelayMilliseconds;
-volatile uint16_t					gWarpCurrentSupplyVoltage		= kWarpDefaultSupplyVoltageMillivolts;
 char							gWarpPrintBuffer[kWarpDefaultPrintBufferSizeBytes];
 
 /*
  *	Since only one SPI transaction is ongoing at a time in our implementation
  */
 
-static void						sleepUntilReset(void);
 static void						lowPowerPinStates(void);
-static void						disableTPS62740(void);
-static void						enableTPS62740(uint16_t voltageMillivolts);
-static void						setTPS62740CommonControlLines(uint16_t voltageMillivolts);
 static void						dumpProcessorState(void);
-static void						repeatRegisterReadForDeviceAndAddress(WarpSensorDevice warpSensorDevice, uint8_t baseAddress,
-								bool autoIncrement, int chunkReadsPerAddress, bool chatty,
-								int spinDelay, int repetitionsPerAddress, uint16_t sssupplyMillivolts,
-								uint16_t adaptiveSssupplyMaxMillivolts, uint8_t referenceByte);
-static int						char2int(int character);
-static void						activateAllLowPowerSensorModes(bool verbose);
-static void						powerupAllSensors(void);
-static uint8_t						readHexByte(void);
-static int						read4digits(void);
-static void						printAllSensors(bool printHeadersAndCalibration, bool hexModeFlag, int menuDelayBetweenEachRun, bool loopForever);
 
 /*
  *	TODO: change the following to take byte arrays
@@ -149,28 +130,6 @@ clockManagerCallbackRoutine(clock_notify_struct_t *  notify, void *  callbackDat
 	}
 
 	return result;
-}
-
-
-/*
- *	Override the RTC IRQ handler
- */
-void
-RTC_IRQHandler(void)
-{
-	if (RTC_DRV_IsAlarmPending(0))
-	{
-		RTC_DRV_SetAlarmIntCmd(0, false);
-	}
-}
-
-/*
- *	Override the RTC Second IRQ handler
- */
-void
-RTC_Seconds_IRQHandler(void)
-{
-	gWarpSleeptimeSeconds++;
 }
 
 /*
@@ -269,49 +228,6 @@ sleepUntilReset(void)
 
 
 void
-enableLPUARTpins(void)
-{
-	/*
-	 *	Enable UART CLOCK
-	 */
-	CLOCK_SYS_EnableLpuartClock(0);
-
-	/*
-	 *	Set UART pin association. See, e.g., page 99 in
-	 *
-	 *		https://www.nxp.com/docs/en/reference-manual/KL03P24M48SF0RM.pdf
-	 *
-	 *	Setup:
-	 *		PTB3/kWarpPinI2C0_SCL_UART_TX for UART TX
-	 *		PTB4/kWarpPinI2C0_SCL_UART_RX for UART RX
-
-//TODO: we don't use hw flow control so don't need RTS/CTS
- *		PTA6/kWarpPinSPI_MISO_UART_RTS for UART RTS
- *		PTA7/kWarpPinSPI_MOSI_UART_CTS for UART CTS
-	 */
-	PORT_HAL_SetMuxMode(PORTB_BASE, 3, kPortMuxAlt3);
-	PORT_HAL_SetMuxMode(PORTB_BASE, 4, kPortMuxAlt3);
-
-//TODO: we don't use hw flow control so don't need RTS/CTS
-//	PORT_HAL_SetMuxMode(PORTA_BASE, 6, kPortMuxAsGpio);
-//	PORT_HAL_SetMuxMode(PORTA_BASE, 7, kPortMuxAsGpio);
-//	GPIO_DRV_SetPinOutput(kWarpPinSPI_MISO_UART_RTS);
-//	GPIO_DRV_SetPinOutput(kWarpPinSPI_MOSI_UART_CTS);
-
-	/*
-	 *	Initialize LPUART0. See KSDK13APIRM.pdf section 40.4.3, page 1353
-	 */
-	lpuartUserConfig.baudRate = gWarpUartBaudRateBps;
-	lpuartUserConfig.parityMode = kLpuartParityDisabled;
-	lpuartUserConfig.stopBitCount = kLpuartOneStopBit;
-	lpuartUserConfig.bitCountPerChar = kLpuart8BitsPerChar;
-	lpuartUserConfig.clockSource = kClockLpuartSrcMcgIrClk;
-
-	LPUART_DRV_Init(0,(lpuart_state_t *)&lpuartState,(lpuart_user_config_t *)&lpuartUserConfig);
-}
-
-
-void
 disableLPUARTpins(void)
 {
 	/*
@@ -364,132 +280,6 @@ sendBytesToUART(uint8_t *  bytes, size_t nbytes)
 	return kWarpStatusOK;
 }
 
-
-
-warpDisableSPIpins(void)
-{
-	SPI_DRV_MasterDeinit(0);
-
-	/*	kWarpPinSPI_MISO_UART_RTS	--> PTA6	(GPI)		*/
-	PORT_HAL_SetMuxMode(PORTA_BASE, 6, kPortMuxAsGpio);
-
-	/*	kWarpPinSPI_MOSI_UART_CTS	--> PTA7	(GPIO)		*/
-	PORT_HAL_SetMuxMode(PORTA_BASE, 7, kPortMuxAsGpio);
-
-	#if (WARP_BUILD_ENABLE_GLAUX_VARIANT)
-		/*	kWarpPinSPI_SCK	--> PTA9	(GPIO)			*/
-		PORT_HAL_SetMuxMode(PORTA_BASE, 9, kPortMuxAsGpio);
-	#else
-		/*	kWarpPinSPI_SCK	--> PTB0	(GPIO)			*/
-		PORT_HAL_SetMuxMode(PORTB_BASE, 0, kPortMuxAsGpio);
-	#endif
-
-//TODO: we don't use HW flow control so can remove these since we don't use the RTS/CTS
-	GPIO_DRV_ClearPinOutput(kWarpPinSPI_MOSI_UART_CTS);
-	GPIO_DRV_ClearPinOutput(kWarpPinSPI_MISO_UART_RTS);
-	GPIO_DRV_ClearPinOutput(kWarpPinSPI_SCK);
-
-	CLOCK_SYS_DisableSpiClock(0);
-}
-
-
-
-void
-warpDeasserAllSPIchipSelects(void)
-{
-	/*
-	 *	By default, assusme pins are currently disabled (e.g., by a recent lowPowerPinStates())
-	 *
-	 *	Drive all chip selects high to disable them. Individual drivers call this routine before
-	 *	appropriately asserting their respective chip selects.
-	 *
-	 *	Setup:
-	 *		PTA12/kWarpPinISL23415_SPI_nCS	for GPIO
-	 *		PTA9/kWarpPinAT45DB_SPI_nCS	for GPIO
-	 *		PTA8/kWarpPinADXL362_SPI_nCS	for GPIO
-	 *		PTB1/kWarpPinFPGA_nCS		for GPIO
-	 *
-	 *		On Glaux
-	 		PTB2/kGlauxPinFlash_SPI_nCS for GPIO
-	 */
-	PORT_HAL_SetMuxMode(PORTA_BASE, 12, kPortMuxAsGpio);
-	PORT_HAL_SetMuxMode(PORTA_BASE, 9, kPortMuxAsGpio);
-	PORT_HAL_SetMuxMode(PORTA_BASE, 8, kPortMuxAsGpio);
-	PORT_HAL_SetMuxMode(PORTB_BASE, 1, kPortMuxAsGpio);
-	#if (WARP_BUILD_ENABLE_GLAUX_VARIANT)
-		PORT_HAL_SetMuxMode(PORTB_BASE, 2, kPortMuxAsGpio);
-	#endif
-
-	#if (WARP_BUILD_ENABLE_DEVISL23415)
-		GPIO_DRV_SetPinOutput(kWarpPinISL23415_SPI_nCS);
-	#endif
-
-	#if (WARP_BUILD_ENABLE_DEVAT45DB)
-		GPIO_DRV_SetPinOutput(kWarpPinAT45DB_SPI_nCS);
-	#endif
-
-	#if (WARP_BUILD_ENABLE_DEVADXL362)
-		GPIO_DRV_SetPinOutput(kWarpPinADXL362_SPI_nCS);
-	#endif
-
-	#if (WARP_BUILD_ENABLE_DEVICE40)
-		GPIO_DRV_SetPinOutput(kWarpPinFPGA_nCS);
-	#endif
-
-	#if (WARP_BUILD_ENABLE_GLAUX_VARIANT)
-		GPIO_DRV_SetPinOutput(kGlauxPinFlash_SPI_nCS);
-	#endif
-}
-
-
-
-void
-debugPrintSPIsinkBuffer(void)
-{
-	for (int i = 0; i < kWarpMemoryCommonSpiBufferBytes; i++)
-	{
-		warpPrint("\tgWarpSpiCommonSinkBuffer[%d] = [0x%02X]\n", i, gWarpSpiCommonSinkBuffer[i]);
-	}
-	warpPrint("\n");
-}
-
-
-
-void
-warpEnableI2Cpins(void)
-{
-	CLOCK_SYS_EnableI2cClock(0);
-
-	/*
-	 *	Setup:
-	 *
-	 *		PTB3/kWarpPinI2C0_SCL_UART_TX	-->	(ALT2 == I2C)
-	 *		PTB4/kWarpPinI2C0_SDA_UART_RX	-->	(ALT2 == I2C)
-	 */
-	PORT_HAL_SetMuxMode(PORTB_BASE, 3, kPortMuxAlt2);
-	PORT_HAL_SetMuxMode(PORTB_BASE, 4, kPortMuxAlt2);
-
-	I2C_DRV_MasterInit(0 /* I2C instance */, (i2c_master_state_t *)&i2cMasterState);
-}
-
-
-
-void
-warpDisableI2Cpins(void)
-{
-	I2C_DRV_MasterDeinit(0 /* I2C instance */);
-
-	/*
-	 *	Setup:
-	 *
-	 *		PTB3/kWarpPinI2C0_SCL_UART_TX	-->	disabled
-	 *		PTB4/kWarpPinI2C0_SDA_UART_RX	-->	disabled
-	 */
-	PORT_HAL_SetMuxMode(PORTB_BASE, 3, kPortPinDisabled);
-	PORT_HAL_SetMuxMode(PORTB_BASE, 4, kPortPinDisabled);
-
-	CLOCK_SYS_DisableI2cClock(0);
-}
 
 	void
 	lowPowerPinStates(void)
@@ -568,287 +358,6 @@ warpDisableI2Cpins(void)
 	}
 
 
-void
-disableTPS62740(void)
-{
-	#if (!WARP_BUILD_ENABLE_GLAUX_VARIANT)
-		GPIO_DRV_ClearPinOutput(kWarpPinTPS62740_REGCTRL);
-	#endif
-}
-
-void
-enableTPS62740(uint16_t voltageMillivolts)
-{
-	#if (!WARP_BUILD_ENABLE_GLAUX_VARIANT)
-		/*
-		 *	By default, assusme pins are currently disabled (e.g., by a recent lowPowerPinStates())
-		 *
-		 *	Setup:
-		 *		PTB5/kWarpPinTPS62740_REGCTRL for GPIO
-		 *		PTB6/kWarpPinTPS62740_VSEL4 for GPIO
-		 *		PTB7/kWarpPinTPS62740_VSEL3 for GPIO
-		 *		PTB10/kWarpPinTPS62740_VSEL2 for GPIO
-		 *		PTB11/kWarpPinTPS62740_VSEL1 for GPIO
-		 */
-		PORT_HAL_SetMuxMode(PORTB_BASE, 5, kPortMuxAsGpio);
-		PORT_HAL_SetMuxMode(PORTB_BASE, 6, kPortMuxAsGpio);
-		PORT_HAL_SetMuxMode(PORTB_BASE, 7, kPortMuxAsGpio);
-		PORT_HAL_SetMuxMode(PORTB_BASE, 10, kPortMuxAsGpio);
-		PORT_HAL_SetMuxMode(PORTB_BASE, 11, kPortMuxAsGpio);
-
-		setTPS62740CommonControlLines(voltageMillivolts);
-		GPIO_DRV_SetPinOutput(kWarpPinTPS62740_REGCTRL);
-	#endif
-}
-
-void
-setTPS62740CommonControlLines(uint16_t voltageMillivolts)
-{
-	#if (!WARP_BUILD_ENABLE_GLAUX_VARIANT)
-		switch(voltageMillivolts)
-		{
-			case 1800:
-			{
-				GPIO_DRV_ClearPinOutput(kWarpPinTPS62740_VSEL1);
-				GPIO_DRV_ClearPinOutput(kWarpPinTPS62740_VSEL2);
-				GPIO_DRV_ClearPinOutput(kWarpPinTPS62740_VSEL3);
-				GPIO_DRV_ClearPinOutput(kWarpPinTPS62740_VSEL4);
-
-				break;
-			}
-
-			case 1900:
-			{
-				GPIO_DRV_SetPinOutput(kWarpPinTPS62740_VSEL1);
-				GPIO_DRV_ClearPinOutput(kWarpPinTPS62740_VSEL2);
-				GPIO_DRV_ClearPinOutput(kWarpPinTPS62740_VSEL3);
-				GPIO_DRV_ClearPinOutput(kWarpPinTPS62740_VSEL4);
-
-				break;
-			}
-
-			case 2000:
-			{
-				GPIO_DRV_ClearPinOutput(kWarpPinTPS62740_VSEL1);
-				GPIO_DRV_SetPinOutput(kWarpPinTPS62740_VSEL2);
-				GPIO_DRV_ClearPinOutput(kWarpPinTPS62740_VSEL3);
-				GPIO_DRV_ClearPinOutput(kWarpPinTPS62740_VSEL4);
-
-				break;
-			}
-
-			case 2100:
-			{
-				GPIO_DRV_SetPinOutput(kWarpPinTPS62740_VSEL1);
-				GPIO_DRV_SetPinOutput(kWarpPinTPS62740_VSEL2);
-				GPIO_DRV_ClearPinOutput(kWarpPinTPS62740_VSEL3);
-				GPIO_DRV_ClearPinOutput(kWarpPinTPS62740_VSEL4);
-
-				break;
-			}
-
-			case 2200:
-			{
-				GPIO_DRV_ClearPinOutput(kWarpPinTPS62740_VSEL1);
-				GPIO_DRV_ClearPinOutput(kWarpPinTPS62740_VSEL2);
-				GPIO_DRV_SetPinOutput(kWarpPinTPS62740_VSEL3);
-				GPIO_DRV_ClearPinOutput(kWarpPinTPS62740_VSEL4);
-
-				break;
-			}
-
-			case 2300:
-			{
-				GPIO_DRV_SetPinOutput(kWarpPinTPS62740_VSEL1);
-				GPIO_DRV_ClearPinOutput(kWarpPinTPS62740_VSEL2);
-				GPIO_DRV_SetPinOutput(kWarpPinTPS62740_VSEL3);
-				GPIO_DRV_ClearPinOutput(kWarpPinTPS62740_VSEL4);
-
-				break;
-			}
-
-			case 2400:
-			{
-				GPIO_DRV_ClearPinOutput(kWarpPinTPS62740_VSEL1);
-				GPIO_DRV_SetPinOutput(kWarpPinTPS62740_VSEL2);
-				GPIO_DRV_SetPinOutput(kWarpPinTPS62740_VSEL3);
-				GPIO_DRV_ClearPinOutput(kWarpPinTPS62740_VSEL4);
-
-				break;
-			}
-
-			case 2500:
-			{
-				GPIO_DRV_SetPinOutput(kWarpPinTPS62740_VSEL1);
-				GPIO_DRV_SetPinOutput(kWarpPinTPS62740_VSEL2);
-				GPIO_DRV_SetPinOutput(kWarpPinTPS62740_VSEL3);
-				GPIO_DRV_ClearPinOutput(kWarpPinTPS62740_VSEL4);
-
-				break;
-			}
-
-			case 2600:
-			{
-				GPIO_DRV_ClearPinOutput(kWarpPinTPS62740_VSEL1);
-				GPIO_DRV_ClearPinOutput(kWarpPinTPS62740_VSEL2);
-				GPIO_DRV_ClearPinOutput(kWarpPinTPS62740_VSEL3);
-				GPIO_DRV_SetPinOutput(kWarpPinTPS62740_VSEL4);
-
-				break;
-			}
-
-			case 2700:
-			{
-				GPIO_DRV_SetPinOutput(kWarpPinTPS62740_VSEL1);
-				GPIO_DRV_ClearPinOutput(kWarpPinTPS62740_VSEL2);
-				GPIO_DRV_ClearPinOutput(kWarpPinTPS62740_VSEL3);
-				GPIO_DRV_SetPinOutput(kWarpPinTPS62740_VSEL4);
-
-				break;
-			}
-
-			case 2800:
-			{
-				GPIO_DRV_ClearPinOutput(kWarpPinTPS62740_VSEL1);
-				GPIO_DRV_SetPinOutput(kWarpPinTPS62740_VSEL2);
-				GPIO_DRV_ClearPinOutput(kWarpPinTPS62740_VSEL3);
-				GPIO_DRV_SetPinOutput(kWarpPinTPS62740_VSEL4);
-
-				break;
-			}
-
-			case 2900:
-			{
-				GPIO_DRV_SetPinOutput(kWarpPinTPS62740_VSEL1);
-				GPIO_DRV_SetPinOutput(kWarpPinTPS62740_VSEL2);
-				GPIO_DRV_ClearPinOutput(kWarpPinTPS62740_VSEL3);
-				GPIO_DRV_SetPinOutput(kWarpPinTPS62740_VSEL4);
-
-				break;
-			}
-
-			case 3000:
-			{
-				GPIO_DRV_ClearPinOutput(kWarpPinTPS62740_VSEL1);
-				GPIO_DRV_ClearPinOutput(kWarpPinTPS62740_VSEL2);
-				GPIO_DRV_SetPinOutput(kWarpPinTPS62740_VSEL3);
-				GPIO_DRV_SetPinOutput(kWarpPinTPS62740_VSEL4);
-
-				break;
-			}
-
-			case 3100:
-			{
-				GPIO_DRV_SetPinOutput(kWarpPinTPS62740_VSEL1);
-				GPIO_DRV_ClearPinOutput(kWarpPinTPS62740_VSEL2);
-				GPIO_DRV_SetPinOutput(kWarpPinTPS62740_VSEL3);
-				GPIO_DRV_SetPinOutput(kWarpPinTPS62740_VSEL4);
-
-				break;
-			}
-
-			case 3200:
-			{
-				GPIO_DRV_ClearPinOutput(kWarpPinTPS62740_VSEL1);
-				GPIO_DRV_SetPinOutput(kWarpPinTPS62740_VSEL2);
-				GPIO_DRV_SetPinOutput(kWarpPinTPS62740_VSEL3);
-				GPIO_DRV_SetPinOutput(kWarpPinTPS62740_VSEL4);
-
-				break;
-			}
-
-			case 3300:
-			{
-				GPIO_DRV_SetPinOutput(kWarpPinTPS62740_VSEL1);
-				GPIO_DRV_SetPinOutput(kWarpPinTPS62740_VSEL2);
-				GPIO_DRV_SetPinOutput(kWarpPinTPS62740_VSEL3);
-				GPIO_DRV_SetPinOutput(kWarpPinTPS62740_VSEL4);
-
-				break;
-			}
-
-			/*
-			 *	Should never happen, due to previous check in warpScaleSupplyVoltage()
-			 */
-			default:
-			{
-				warpPrint(RTT_CTRL_RESET RTT_CTRL_BG_BRIGHT_YELLOW RTT_CTRL_TEXT_BRIGHT_WHITE kWarpConstantStringErrorSanity RTT_CTRL_RESET "\n");
-			}
-		}
-
-		/*
-		 *	Vload ramp time of the TPS62740 is 800us max (datasheet, Table 8.5 / page 6)
-		 */
-		OSA_TimeDelay(gWarpSupplySettlingDelayMilliseconds);
-	#endif
-}
-
-
-
-void
-warpScaleSupplyVoltage(uint16_t voltageMillivolts)
-{
-	if (voltageMillivolts == gWarpCurrentSupplyVoltage)
-	{
-		return;
-	}
-
-	#if (!WARP_BUILD_ENABLE_GLAUX_VARIANT)
-		if (voltageMillivolts >= 1800 && voltageMillivolts <= 3300)
-		{
-			enableTPS62740(voltageMillivolts);
-			gWarpCurrentSupplyVoltage = voltageMillivolts;
-		}
-		else
-		{
-			warpPrint(RTT_CTRL_RESET RTT_CTRL_BG_BRIGHT_RED RTT_CTRL_TEXT_BRIGHT_WHITE kWarpConstantStringErrorInvalidVoltage RTT_CTRL_RESET "\n", voltageMillivolts);
-		}
-	#endif
-}
-
-
-
-void
-warpDisableSupplyVoltage(void)
-{
-	#if (!WARP_BUILD_ENABLE_GLAUX_VARIANT)
-		disableTPS62740();
-
-		/*
-		 *	Vload ramp time of the TPS62740 is 800us max (datasheet, Table 8.5 / page 6)
-		 */
-		OSA_TimeDelay(gWarpSupplySettlingDelayMilliseconds);
-	#endif
-}
-
-
-void
-warpLowPowerSecondsSleep(uint32_t sleepSeconds, bool forceAllPinsIntoLowPowerState)
-{
-	WarpStatus	status = kWarpStatusOK;
-
-	/*
-	 *	Set all pins into low-power states. We don't just disable all pins,
-	 *	as the various devices hanging off will be left in higher power draw
-	 *	state. And manuals say set pins to output to reduce power.
-	 */
-	if (forceAllPinsIntoLowPowerState)
-	{
-		lowPowerPinStates();
-	}
-
-	warpSetLowPowerMode(kWarpPowerModeVLPR, 0 /* Sleep Seconds */);
-	if ((status != kWarpStatusOK) && (status != kWarpStatusPowerTransitionErrorVlpr2Vlpr))
-	{
-		warpPrint("warpSetLowPowerMode(kWarpPowerModeVLPR, 0 /* sleep seconds : irrelevant here */)() failed...\n");
-	}
-
-	status = warpSetLowPowerMode(kWarpPowerModeVLPS, sleepSeconds);
-	if (status != kWarpStatusOK)
-	{
-		warpPrint("warpSetLowPowerMode(kWarpPowerModeVLPS, 0 /* sleep seconds : irrelevant here */)() failed...\n");
-	}
-}
 
 void
 dumpProcessorState(void)
@@ -870,18 +379,6 @@ dumpProcessorState(void)
 	warpPrint("\r\tCMP clock: %d\n", CLOCK_SYS_GetCmpGateCmd(0));
 	warpPrint("\r\tVREF clock: %d\n", CLOCK_SYS_GetVrefGateCmd(0));
 	warpPrint("\r\tTPM clock: %d\n", CLOCK_SYS_GetTpmGateCmd(0));
-}
-
-
-void
-printBootSplash(uint16_t gWarpCurrentSupplyVoltage, uint8_t menuRegisterAddress, WarpPowerManagerCallbackStructure *  powerManagerCallbackStructure)
-{
-	/*
-	 *	We break up the prints with small delays to allow us to use small RTT print
-	 *	buffers without overrunning them when at max CPU speed.
-	 */
-	warpPrint("\r\n\n\n\n[ *\t\t\t\tWarp (HW revision C) / Glaux (HW revision B)\t\t\t* ]\n");
-	warpPrint("\r[  \t\t\t\t      Cambridge / Physcomplab   \t\t\t\t  ]\n\n");
 }
 
 void
@@ -1002,89 +499,9 @@ warpPrint(const char *fmt, ...)
 }
 
 int
-warpWaitKey(void)
-{
-	/*
-	 *	SEGGER'S implementation assumes the result of result of
-	 *	SEGGER_RTT_GetKey() is an int, so we play along.
-	 */
-	int		rttKey, bleChar = kWarpMiscMarkerForAbsentByte;
-
-	/*
-	 *	Set the UART buffer to 0xFF and then wait until either the
-	 *	UART RX buffer changes or the RTT icoming key changes.
-	 *
-	 *	The check below on rttKey is exactly what SEGGER_RTT_WaitKey()
-	 *	does in SEGGER_RTT.c.
-	 */
-	#if (WARP_BUILD_ENABLE_DEVBGX)
-		deviceBGXState.uartRXBuffer[0] = kWarpMiscMarkerForAbsentByte;
-		enableLPUARTpins();
-		initBGX(kWarpDefaultSupplyVoltageMillivoltsBGX);
-	#endif
-
-	do
-	{
-		rttKey	= SEGGER_RTT_GetKey();
-
-		#if (WARP_BUILD_ENABLE_DEVBGX)
-			bleChar	= deviceBGXState.uartRXBuffer[0];
-		#endif
-
-		/*
-		 *	NOTE: We ignore all chars on BLE except '0'-'9', 'a'-'z'/'A'-Z'
-		 */
-		if (!(bleChar > 'a' && bleChar < 'z') && !(bleChar > 'A' && bleChar < 'Z') && !(bleChar > '0' && bleChar < '9'))
-		{
-			bleChar = kWarpMiscMarkerForAbsentByte;
-		}
-	} while ((rttKey < 0) && (bleChar == kWarpMiscMarkerForAbsentByte));
-
-	#if (WARP_BUILD_ENABLE_DEVBGX)
-		if (bleChar != kWarpMiscMarkerForAbsentByte)
-		{
-			/*
-			 *	Send a copy of incoming BLE chars to RTT
-			 */
-			SEGGER_RTT_PutChar(0, bleChar);
-			disableLPUARTpins();
-
-			/*
-			 *	We don't want to deInit() the BGX since that would drop
-			 *	any remote terminal connected to it.
-			 */
-			//deinitBGX();
-
-			return (int)bleChar;
-		}
-
-		/*
-		 *	Send a copy of incoming RTT chars to BLE
-		 */
-		WarpStatus status = sendBytesToUART((uint8_t *)&rttKey, 1);
-		if (status != kWarpStatusOK)
-		{
-			SEGGER_RTT_WriteString(0, gWarpEuartSendChars);
-		}
-
-		disableLPUARTpins();
-
-		/*
-		 *	We don't want to deInit() the BGX since that would drop
-		 *	any remote terminal connected to it.
-		 */
-		//deinitBGX();
-	#endif
-
-	return rttKey;
-}
-
-int
 main(void)
 {
 	WarpStatus				status;
-	uint8_t					key;
-	uint8_t					menuRegisterAddress		= 0x00;
 	power_manager_user_config_t		warpPowerModeWaitConfig;
 	power_manager_user_config_t		warpPowerModeStopConfig;
 	power_manager_user_config_t		warpPowerModeVlpwConfig;
@@ -1306,7 +723,7 @@ main(void)
 		uint8_t  chn      = 2; //Sets ADC channel up to PTA9
 		uint32_t startTime, stopTime;	
 		startTime = OSA_TimeGetMsec();
-		int n = 64;
+		int n = 32;
 		long complex xarray[n];
 		for(int i = 0; i<n; i++){
 			xarray[i] = i;
@@ -1343,5 +760,6 @@ main(void)
 			warpPrint("\nSamp Rate: %u", (uint32_t)(numSamples*1000) / (stopTime-startTime));
 			OSA_TimeDelay(200);
 		}		
+	}	
 	return 0;
 }
