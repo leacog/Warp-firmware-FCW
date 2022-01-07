@@ -2046,18 +2046,18 @@ main(void)
 		uint8_t  chn      = 2; //Sets ADC channel up to PTA9
 		uint32_t startTime, stopTime;	
 		startTime = OSA_TimeGetMsec();
-		for(int i=0; i<100000; i++){
-		long xarray[8] = {0,1,2,3,4,5,6,7};
-		long resultArray[8] = {0};
+		//for(int i=0; i<1000; i++){
+		long complex xarray[8] = {0,1,2,3,4,5,6,7};
+		long complex resultArray[8] = {0};
 		FFT(&xarray[0], &resultArray[0]);
-		}
+		//}
 		stopTime = OSA_TimeGetMsec();
 		warpPrint("\nFFTTIME: %u", (uint32_t)((stopTime-startTime)));
-		/*
+		
 		for(int ij = 0; ij < 8; ij++){
-			warpPrint("\nresult: %d", resultArray[ij]);
+			warpPrint("\nresult: RE[%d] - IM[%d]", (int)creal(resultArray[ij]), (int)cimag(resultArray[ij]));
 		}
-		*/
+	
 		while(1){}
 		dumpProcessorState();
 		warpSetLowPowerMode(kWarpPowerModeRUN, 0 /* sleep seconds : irrelevant here */);

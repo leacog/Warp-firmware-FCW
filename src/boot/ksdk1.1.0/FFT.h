@@ -1,4 +1,4 @@
-#include "stdint.h"
+#include "complex.h"
 
-void FFT(long * eightPoints, long * outArray);
-void FFT2(long * twoPoints, long * outArray);
+void FFT(long complex * eightPoints, long complex * outArray);
+void FFT2(long complex * twoPoints, long complex * outArray);
