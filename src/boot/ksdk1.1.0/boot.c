@@ -61,6 +61,7 @@
 #include "fsl_adc16_driver.h"
 #include "ADC.h"
 #include "FFT.h"
+#include "PWM.h"
 #include "complex.h"
 
 
@@ -491,7 +492,7 @@ main(void)
 	PORT_HAL_SetMuxMode(PORTA_BASE, 0, kPortMuxAlt3);
 	PORT_HAL_SetMuxMode(PORTA_BASE, 1, kPortMuxAlt3);
 	PORT_HAL_SetMuxMode(PORTA_BASE, 2, kPortMuxAlt3);
-
+	PORT_HAL_SetMuxMode(PORTB_BASE, 11,kPortMuxAlt2); // Set PTB2 up for TPM0_CH0
 	/*
 	 *	Note that it is lowPowerPinStates() that sets the pin mux mode,
 	 *	so until we call it pins are in their default state.
@@ -526,6 +527,8 @@ main(void)
 		 *	want to use menu to progressiveley change the machine state with various
 		 *	commands.
 		 */
+		PWM_init(0,0);
+		OSA_TimeDelay(10000);
 		uint32_t startTime, stopTime;	
 	
 		dumpProcessorState();
