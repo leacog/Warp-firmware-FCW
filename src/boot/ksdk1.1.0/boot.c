@@ -2046,17 +2046,17 @@ main(void)
 		uint8_t  chn      = 2; //Sets ADC channel up to PTA9
 		uint32_t startTime, stopTime;	
 		startTime = OSA_TimeGetMsec();
-		//long complex xarray[32] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
-		//long complex resultArray[32] = {0};
-		//FFT(&xarray[0], &resultArray[0],32);
-		long complex xarray[16] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
-		long complex resultArray[16] = {0};
-		FFT(&xarray[0], &resultArray[0],16);
+		int n = 64;
+		long complex xarray[n];
+		for(int i = 0; i<n; i++){
+			xarray[i] = i;
+		}
+		FFT(&xarray[0],n);
 		stopTime = OSA_TimeGetMsec();
 		warpPrint("\nFFTTIME: %u", (uint32_t)((stopTime-startTime)));
 		
-		for(int ij = 0; ij < 16; ij++){
-			warpPrint("\nresult: RE[%d] - IM[%d]", (int)creal(resultArray[ij]), (int)cimag(resultArray[ij]));
+		for(int ij = 0; ij < n; ij++){
+			warpPrint("\nresult: RE[%d] - IM[%d]", (int)creal(xarray[ij]), (int)cimag(xarray[ij]));
 		}
 	
 		while(1){}

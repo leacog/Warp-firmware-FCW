@@ -2,37 +2,50 @@
 #include "complex.h"
 #define PRE_MULT 1000
 
-long complex tf32[16] = { 
-  1000     + -0    *I,
-  981      + -195  *I,
-  924      + -383  *I,
-  831      + -556  *I,
-  707      + -707  *I,
-  556      + -831  *I,
-  383      + -924  *I,
-  195      + -981  *I,
-  0        + -1000 *I,
-  -195     + -981  *I,
-  -383     + -924  *I,
-  -556     + -831  *I,
-  -707     + -707  *I,
-  -831     + -556  *I,
-  -924     + -383  *I,
-  -981     + -195  *I
+long complex tf64[32] = { 
+1000     + -0    *I,
+995      + -98   *I,
+981      + -195  *I,
+957      + -290  *I,
+924      + -383  *I,
+882      + -471  *I,
+831      + -556  *I,
+773      + -634  *I,
+707      + -707  *I,
+634      + -773  *I,
+556      + -831  *I,
+471      + -882  *I,
+383      + -924  *I,
+290      + -957  *I,
+195      + -981  *I,
+98       + -995  *I,
+0        + -1000 *I,
+-98      + -995  *I,
+-195     + -981  *I,
+-290     + -957  *I,
+-383     + -924  *I,
+-471     + -882  *I,
+-556     + -831  *I,
+-634     + -773  *I,
+-707     + -707  *I,
+-773     + -634  *I,
+-831     + -556  *I,
+-882     + -471  *I,
+-924     + -383  *I,
+-957     + -290  *I,
+-981     + -195  *I,
+-995     + -98   *I
 };
 
+static int BitReverseArray[64] = {0,16,8,24,4,20,12,28,2,18,10,26,6,22,14,30,1,17,9,25,5,21,13,29,3,19,11,27,7,23,15,31,1,33,17,49,9,41,25,57,5,37,21,53,13,45,29,61,3,35,19,51,11,43,27,59,7,39,23,55,15,47,31,63};
 
-void FFT(long complex * eightPoints, long complex * outArray, int N){
-  static int BitReverseArray[32] = {0,16,8,24,4,20,12,28,2,18,10,26,6,22,14,30,1,17,9,25,5,21,13,29,3,19,11,27,7,23,15,31};
+void FFT(long complex * x, int N){
 
   //long complex x_ping[N];
-  long complex x_temp[N];
   
-  for(int i =0; i < N; i++){
-    x_temp[i] = eightPoints[BitReverseArray[i*(32/N)]]; 
-  }
-  
-  FFTN(&x_temp[0], N);
+  bitReverse(x, N);
+
+  FFTN(&x[0], N);
   /*
   for(int i=0; i < 8; i++){
     	FFT2(&x_pong[i*2], &x_ping[i*2]);
@@ -51,10 +64,18 @@ void FFT(long complex * eightPoints, long complex * outArray, int N){
   }
   
   */
-  for(int i =0; i<16; i++){
-  	outArray[i] = x_temp[i];
+}
+
+void bitReverse(long complex * x, int N){
+  long complex x_temp[N];
+  for(int i =0; i < N; i++){
+    x_temp[i] = x[BitReverseArray[i*(32/N)]]; 
+  }
+  for(int i =0; i < N; i++){
+    x[i] = x_temp[i]; 
   }
 }
+
 
 /*
 
@@ -65,22 +86,22 @@ void FFT2(long complex * x2, long complex * outArray){
 
 void FFT4(long complex * x4, long complex * outArray){
   for(int i = 0; i<2; i++){
-	  outArray[i] = (1000*x4[i] + tf32[i*(32/4)] * x4[i+2])/1000;
-	  outArray[i+2] = (1000*x4[i] - tf32[i*(32/4)] * x4[i+2])/1000;
+	  outArray[i] = (1000*x4[i] + tf64[i*(32/4)] * x4[i+2])/1000;
+	  outArray[i+2] = (1000*x4[i] - tf64[i*(32/4)] * x4[i+2])/1000;
   }
 }
 
 void FFT8(long complex * x8, long complex * outArray){
   for(int i =0; i<4; i++){
-  	outArray[i]   = (1000 * x8[i] + tf32[i*(32/8)] * x8[i+4]);
-	outArray[i+4] = (1000 * x8[i] - tf32[i*(32/8)] * x8[i+4]);
+  	outArray[i]   = (1000 * x8[i] + tf64[i*(32/8)] * x8[i+4]);
+	outArray[i+4] = (1000 * x8[i] - tf64[i*(32/8)] * x8[i+4]);
   }
 }
 
 void FFT16(long complex * x16, long complex * outArray){
   for(int i =0; i<8; i++){
-  	outArray[i]   = (1000 * x16[i] + tf32[i*(32/16)] * x16[i+8]);
-	outArray[i+8] = (1000 * x16[i] - tf32[i*(32/16)] * x16[i+8]);
+  	outArray[i]   = (1000 * x16[i] + tf64[i*(32/16)] * x16[i+8]);
+	outArray[i+8] = (1000 * x16[i] - tf64[i*(32/16)] * x16[i+8]);
   }
 }
 */
@@ -95,7 +116,7 @@ void FFTN(long complex * x, int n){
   for(int i=0; i < (n/2); i++){
     long complex x_temp_1 = x[i];
     long complex x_temp_2 = x[i+n/2];    
-    x[i]     = (PRE_MULT * x_temp_1 + tf32[i*(32/n)] * x_temp_2)/PRE_MULT;
-    x[i+n/2] = (PRE_MULT * x_temp_1 - tf32[i*(32/n)] * x_temp_2)/PRE_MULT;
+    x[i]     = (PRE_MULT * x_temp_1 + tf64[i*(32/n)] * x_temp_2)/PRE_MULT;
+    x[i+n/2] = (PRE_MULT * x_temp_1 - tf64[i*(32/n)] * x_temp_2)/PRE_MULT;
   }
 }
