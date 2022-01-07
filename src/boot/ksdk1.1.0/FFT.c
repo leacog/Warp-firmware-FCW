@@ -32,7 +32,7 @@ void FFT(long complex * eightPoints, long complex * outArray, int N){
     x_temp[i] = eightPoints[BitReverseArray[i*(32/N)]]; 
   }
   
-  FFTN(&x_temp[0], &outArray[0], N);
+  FFTN(&x_temp[0], N);
   /*
   for(int i=0; i < 8; i++){
     	FFT2(&x_pong[i*2], &x_ping[i*2]);
@@ -50,10 +50,10 @@ void FFT(long complex * eightPoints, long complex * outArray, int N){
   	FFT16(&x_ping[i*16], &x_pong[i*16]);
   }
   
-  for(int i =0; i<16; i++){
-  	outArray[i] = x_pong[i];
-  }
   */
+  for(int i =0; i<16; i++){
+  	outArray[i] = x_temp[i];
+  }
 }
 
 /*
@@ -85,16 +85,17 @@ void FFT16(long complex * x16, long complex * outArray){
 }
 */
 
-void FFTN(long complex * x, long complex * output, int n){
+//
+void FFTN(long complex * x, int n){
   warpPrint("\nn=%u", n);
   if(n>2){
-    FFTN(&x[0],   &x[0],   n/2);
-    FFTN(&x[n/2], &x[n/2], n/2);
+    FFTN(&x[0],   n/2);
+    FFTN(&x[n/2], n/2);
   }
   for(int i=0; i < (n/2); i++){
     long complex x_temp_1 = x[i];
     long complex x_temp_2 = x[i+n/2];    
-    output[i]     = (PRE_MULT * x_temp_1 + tf32[i*(32/n)] * x_temp_2)/PRE_MULT;
-    output[i+n/2] = (PRE_MULT * x_temp_1 - tf32[i*(32/n)] * x_temp_2)/PRE_MULT;
+    x[i]     = (PRE_MULT * x_temp_1 + tf32[i*(32/n)] * x_temp_2)/PRE_MULT;
+    x[i+n/2] = (PRE_MULT * x_temp_1 - tf32[i*(32/n)] * x_temp_2)/PRE_MULT;
   }
 }
