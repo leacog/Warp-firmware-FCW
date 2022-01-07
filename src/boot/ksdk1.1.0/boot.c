@@ -2046,11 +2046,12 @@ main(void)
 		uint8_t  chn      = 2; //Sets ADC channel up to PTA9
 		uint32_t startTime, stopTime;	
 		startTime = OSA_TimeGetMsec();
-		//for(int i=0; i<1000; i++){
+		//long complex xarray[32] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
+		//long complex resultArray[32] = {0};
+		//FFT(&xarray[0], &resultArray[0],32);
 		long complex xarray[16] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
 		long complex resultArray[16] = {0};
-		FFT(&xarray[0], &resultArray[0]);
-		//}
+		FFT(&xarray[0], &resultArray[0],16);
 		stopTime = OSA_TimeGetMsec();
 		warpPrint("\nFFTTIME: %u", (uint32_t)((stopTime-startTime)));
 		
