@@ -1,8 +1,8 @@
 #include "FFT.h"
-#include "string.h" //Needed for memcpy
 #include "complex.h"
+#define PRE_MULT 1000
 
-long complex tf32[16] = {
+long complex tf32[16] = { 
   1000     + -0    *I,
   981      + -195  *I,
   924      + -383  *I,
@@ -22,16 +22,18 @@ long complex tf32[16] = {
 };
 
 
-void FFT(long complex * eightPoints, long complex * outArray){
+void FFT(long complex * eightPoints, long complex * outArray, uint8_t N){
   static int BitReverseArray[16] = {0,8,4,12,2,10,6,14,1,9,5,13,3,11,7,15};
 
-  long complex x_ping[16];
-  long complex x_pong[16];
-
+  //long complex x_ping[16];
+  long complex x_temp[16];
+  
   for(int i =0; i < 16; i++){
-    x_pong[i] = eightPoints[BitReverseArray[i]]; 
+    x_temp[i] = eightPoints[BitReverseArray[i]]; 
   }
   
+  FFTN(&x_temp[0], &outArray[0], N);
+  /*
   for(int i=0; i < 8; i++){
     	FFT2(&x_pong[i*2], &x_ping[i*2]);
   }
@@ -47,11 +49,14 @@ void FFT(long complex * eightPoints, long complex * outArray){
   for(int i=0; i<1; i++){
   	FFT16(&x_ping[i*16], &x_pong[i*16]);
   }
-
+  
   for(int i =0; i<16; i++){
   	outArray[i] = x_pong[i];
   }
+  */
 }
+
+/*
 
 void FFT2(long complex * x2, long complex * outArray){
   outArray[0] = x2[0] + x2[1];
@@ -78,4 +83,19 @@ void FFT16(long complex * x16, long complex * outArray){
 	outArray[i+8] = (1000 * x16[i] - tf32[i*(32/16)] * x16[i+8]);
   }
 }
+*/
 
+void FFTN(long complex * x, long complex * output, uint8_t n){
+  long complex x_temp[n] = {0};
+  if(n>2){
+    FFTN(&x[0],   &x_temp[0],   n/2);
+    FFTN(&x[n/2], &x_temp[n/2], n/2);
+  } else { //n == 2
+    x_temp[0] = x[0];
+    x_temp[1] = x[1];
+  }
+  for(int i=0; i < (n/2); i++){
+    output[i]     = PRE_MULT * x_temp[i] + tf32[i*(32/n)] * x_temp[i+(n/2)];
+    output[i+n/2] = PRE_MULT * x_temp[i] - tf32[i*(32/n)] * x_temp[i+(n/2)];
+  }
+}
