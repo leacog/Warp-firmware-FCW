@@ -2047,14 +2047,14 @@ main(void)
 		uint32_t startTime, stopTime;	
 		startTime = OSA_TimeGetMsec();
 		//for(int i=0; i<1000; i++){
-		long complex xarray[8] = {0,1,2,3,4,5,6,7};
-		long complex resultArray[8] = {0};
+		long complex xarray[16] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
+		long complex resultArray[16] = {0};
 		FFT(&xarray[0], &resultArray[0]);
 		//}
 		stopTime = OSA_TimeGetMsec();
 		warpPrint("\nFFTTIME: %u", (uint32_t)((stopTime-startTime)));
 		
-		for(int ij = 0; ij < 8; ij++){
+		for(int ij = 0; ij < 16; ij++){
 			warpPrint("\nresult: RE[%d] - IM[%d]", (int)creal(resultArray[ij]), (int)cimag(resultArray[ij]));
 		}
 	
