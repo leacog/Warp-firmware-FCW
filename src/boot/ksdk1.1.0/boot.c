@@ -324,7 +324,80 @@ warpPrint(const char *fmt, ...)
 
 	return;
 }
+void
+	lowPowerPinStates(void)
+	{
+		/*
+		 *	Following Section 5 of "Power Management for Kinetis L Family" (AN5088.pdf),
+		 *	we configure all pins as output and set them to a known state. We choose
+		 *	to set them all to '0' since it happens that the devices we want to keep
+		 *	deactivated (SI4705) also need '0'.
+		 */
 
+		/*
+		 *			PORT A
+		 */
+		/*
+		 *	For now, don't touch the PTA0/1/2 SWD pins. Revisit in the future.
+		 */
+		PORT_HAL_SetMuxMode(PORTA_BASE, 0, kPortMuxAlt3);
+		PORT_HAL_SetMuxMode(PORTA_BASE, 1, kPortMuxAlt3);
+		PORT_HAL_SetMuxMode(PORTA_BASE, 2, kPortMuxAlt3);
+
+		/*
+		 *	PTA3 and PTA4 are the EXTAL0/XTAL0. They are also connected to the clock output
+		 *	of the RV8803 (and PTA4 is a sacrificial pin for PTA3), so do not want to drive them.
+		 *	We however have to configure PTA3 to Alt0 (kPortPinDisabled) to get the EXTAL0
+		 *	functionality.
+		 *
+		 *	NOTE:	kPortPinDisabled is the equivalent of `Alt0`
+		 */
+		PORT_HAL_SetMuxMode(PORTA_BASE, 3, kPortPinDisabled);
+		PORT_HAL_SetMuxMode(PORTA_BASE, 4, kPortPinDisabled);
+
+		/*
+		 *	Disable PTA5
+		 *
+		 *	NOTE: Enabling this significantly increases current draw
+		 *	(from ~180uA to ~4mA) and we don't need the RTC on revC.
+		 *
+		 */
+		PORT_HAL_SetMuxMode(PORTA_BASE, 5, kPortPinDisabled);
+
+		/*
+		 *	Section 2.6 of Kinetis Energy Savings – Tips and Tricks says
+		 *
+		 *		"Unused pins should be configured in the disabled state, mux(0),
+		 *		to prevent unwanted leakage (potentially caused by floating inputs)."
+		 *
+		 *	However, other documents advice to place pin as GPIO and drive low or high.
+		 *	For now, leave disabled. Filed issue #54 low-power pin states to investigate.
+		 */
+		PORT_HAL_SetMuxMode(PORTA_BASE, 6, kPortPinDisabled);
+		PORT_HAL_SetMuxMode(PORTA_BASE, 7, kPortPinDisabled);
+		PORT_HAL_SetMuxMode(PORTA_BASE, 8, kPortPinDisabled);
+		PORT_HAL_SetMuxMode(PORTA_BASE, 9, kPortPinDisabled);
+
+		/*
+		 *	NOTE: The KL03 has no PTA10 or PTA11
+		 */
+		PORT_HAL_SetMuxMode(PORTA_BASE, 12, kPortPinDisabled);
+
+
+		/*
+		 *			PORT B
+		 */
+		PORT_HAL_SetMuxMode(PORTB_BASE, 0, kPortPinDisabled);
+		PORT_HAL_SetMuxMode(PORTB_BASE, 1, kPortPinDisabled);
+		PORT_HAL_SetMuxMode(PORTB_BASE, 2, kPortPinDisabled);
+		PORT_HAL_SetMuxMode(PORTB_BASE, 3, kPortPinDisabled);
+		PORT_HAL_SetMuxMode(PORTB_BASE, 4, kPortPinDisabled);
+		PORT_HAL_SetMuxMode(PORTB_BASE, 5, kPortPinDisabled);
+		PORT_HAL_SetMuxMode(PORTB_BASE, 6, kPortPinDisabled);
+		PORT_HAL_SetMuxMode(PORTB_BASE, 7, kPortPinDisabled);
+		PORT_HAL_SetMuxMode(PORTB_BASE, 10, kPortPinDisabled);
+		PORT_HAL_SetMuxMode(PORTB_BASE, 13, kPortPinDisabled);
+	}
 int
 main(void)
 {
@@ -481,7 +554,7 @@ main(void)
 	 *	See also Section 30.3.3 GPIO Initialization of KSDK13APIRM.pdf
 	 */
 	warpPrint("About to GPIO_DRV_Init()... ");
-	GPIO_DRV_Init(inputPins  /* input pins */, outputPins  /* output pins */);
+	//GPIO_DRV_Init(inputPins  /* input pins */, outputPins  /* output pins */);
 	warpPrint("done.\n");
 
 	/*
@@ -492,13 +565,15 @@ main(void)
 	PORT_HAL_SetMuxMode(PORTA_BASE, 0, kPortMuxAlt3);
 	PORT_HAL_SetMuxMode(PORTA_BASE, 1, kPortMuxAlt3);
 	PORT_HAL_SetMuxMode(PORTA_BASE, 2, kPortMuxAlt3);
-	PORT_HAL_SetMuxMode(PORTB_BASE, 11,kPortMuxAlt2); // Set PTB2 up for TPM0_CH0
 	/*
 	 *	Note that it is lowPowerPinStates() that sets the pin mux mode,
 	 *	so until we call it pins are in their default state.
 	 */
 	warpPrint("About to lowPowerPinStates()... ");
-	//lowPowerPinStates();
+	lowPowerPinStates();
+	PORT_HAL_SetMuxMode(PORTB_BASE, 10u,kPortMuxAlt2); // Set PTB10 up for TPM0_CH1
+	PORT_HAL_SetMuxMode(PORTB_BASE, 11u,kPortMuxAlt2); // Set PTB7 up for TPM1_CH0
+	PORT_HAL_SetMuxMode(PORTB_BASE, 13u,kPortMuxAlt2); // Set PTB13 up for TPM1_CH1
 	warpPrint("done.\n");
 
 	#if (WARP_BUILD_ENABLE_GLAUX_VARIANT)
@@ -527,18 +602,35 @@ main(void)
 		 *	want to use menu to progressiveley change the machine state with various
 		 *	commands.
 		 */
-		PWM_init(0,0);
-		OSA_TimeDelay(10000);
-		uint32_t startTime, stopTime;	
-	
+		
 		dumpProcessorState();
 		warpSetLowPowerMode(kWarpPowerModeRUN, 0 /* sleep seconds : irrelevant here */);
 		if (status != kWarpStatusOK)
 		{
 			warpPrint("warpSetLowPowerMode(kWarpPowerModeRUN, 0 /* sleep seconds : irrelevant here */)() failed...\n");
 		}
+		
 		OSA_TimeDelay(200);
 		dumpProcessorState();
+		TPM_init(0);
+		TPM_init(1);
+		PWM_init(0,0);
+		PWM_init(0,1);
+		PWM_init(1,1);
+		PWM_SetDuty(1,1,4023);
+		PWM_SetDuty(0,0,4023);
+		PWM_SetDuty(0,1,2023);
+		OSA_TimeDelay(3000);
+		PWM_SetDuty(1,1,2023);
+		PWM_SetDuty(0,0,4023);
+		PWM_SetDuty(0,1,4023);
+		OSA_TimeDelay(3000);
+		PWM_SetDuty(1,1,4023);
+		PWM_SetDuty(0,0,2023);
+		PWM_SetDuty(0,1,4023);
+		while(1){}
+		uint32_t startTime, stopTime;	
+	
 		OSA_TimeDelay(300);
 		uint32_t instance = 0;
 		uint32_t chnGroup = 0;

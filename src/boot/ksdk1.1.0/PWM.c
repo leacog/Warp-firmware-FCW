@@ -2,24 +2,37 @@
 #include "fsl_tpm_driver.h"
 #include "fsl_tpm_hal.h"
 
-const tpm_general_config_t basePwmConfig = {
-  .isBDGMode = false,
+tpm_general_config_t basePwmConfig = {
+  .isDBGMode = false,
   .isGlobalTimeBase = false,
   .isTriggerMode = false,
-  .isStopCountOnOverflow = false,
-  .isCountReloadOnTrig = false
+  .isStopCountOnOveflow = false,
+  .isCountReloadOnTrig = true
 };
 
-const tpm_pwm_param_t pwmConfig = {
+tpm_pwm_param_t pwmConfig = {
   .mode = kTpmEdgeAlignedPWM,
   .edgeMode = kTpmHighTrue,
-  .uFrequencyHZ = 1,
-  .uDutyCyclePercent = 50
+  .uFrequencyHZ = 1000,
+  .uDutyCyclePercent = 0
 };
 
+void TPM_init(uint8_t instance){
+  TPM_DRV_Init(instance, &basePwmConfig);
+  TPM_DRV_SetClock(instance, kTpmClockSourceModuleHighFreq, kTpmDividedBy32); //Set prescaler to 128 - clock is now 375kHz
+}
 
 void PWM_init(uint8_t instance, uint8_t channel){
-  TPM_DRV_Init(instance, &basePwmConfig);
-  TPM_DRV_Init(instance, kTpmClockSourceModuleHighFreq, kTpmDividedBy128); //Set prescaler to 128 - clock is now 375kHz
   TPM_DRV_PwmStart(instance, &pwmConfig, channel);
+  TPM_HAL_SetMod(g_tpmBaseAddr[instance], 4095); //12 bit colour value
+  OSA_TimeDelay(10);
+  OSA_TimeDelay(10);
+  uint16_t modVal = TPM_HAL_GetMod(g_tpmBaseAddr[instance]);
+  uint32_t regVal = TPM_HAL_GetStatusRegVal(g_tpmBaseAddr[instance]);
+  warpPrint("\nmodval: %u", (uint32_t)modVal);
+  warpPrint("\nInitalized PWM");
+}
+
+void PWM_SetDuty(uint8_t instance, uint8_t chn, uint16_t val){
+	TPM_HAL_SetChnCountVal(g_tpmBaseAddr[instance], chn, val);
 }
