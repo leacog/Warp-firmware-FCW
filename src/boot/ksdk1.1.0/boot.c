@@ -139,11 +139,10 @@ LLWU_IRQHandler(void)
 
 volatile bool adcRdyFlag = 0;
 volatile uint16_t adcRawValue = 0;
-
+uint8_t sampleIdx = 0;
+bool 	bufferFilled = false;
 void ADC0_IRQHandler(void)
 {
-    adcRawValue = ADC16_DRV_GetConvValueRAW(0, 0);
-    adcRdyFlag = true;
 }
 
 /*
@@ -595,61 +594,54 @@ main(void)
 	OSA_TimeDelay(1000);
 	warpPrint("Starting program! \n");
 	
+	// ----- Set Power Mode ---
+		
+	warpSetLowPowerMode(kWarpPowerModeRUN, 0 /* sleep seconds : irrelevant here */);
+	if (status != kWarpStatusOK)
+	{
+		warpPrint("warpSetLowPowerMode(kWarpPowerModeRUN, 0 /* sleep seconds : irrelevant here */)() failed...\n");
+	}
+	
+	dumpProcessorState();
+
+	// ----- Init PWM -------
+	TPM_init(0);
+	TPM_init(1);
+	PWM_init(0,0);
+	PWM_init(0,1);
+	PWM_init(1,1);
+
+	// ----- Init ADC -------
+	uint32_t instance = 0;
+	uint32_t chnGroup = 0;
+	uint8_t  chn      = 2; //Sets ADC channel up to PTA9
+	ADC16_init_continuous(instance, chnGroup, chn);
+	warpPrint("\n Set up ADC");
+
+	// ----- Init FFT -----
+	uint8_t nPoint = 32;
+	long sampleBuffer[nPoint]; 
+	long complex fftBuffer[nPoint];
+
 	while (1)
 	{
-		/*
-		 *	Do not, e.g., lowPowerPinStates() on each iteration, because we actually
-		 *	want to use menu to progressiveley change the machine state with various
-		 *	commands.
-		 */
 		
-		dumpProcessorState();
-		warpSetLowPowerMode(kWarpPowerModeRUN, 0 /* sleep seconds : irrelevant here */);
-		if (status != kWarpStatusOK)
-		{
-			warpPrint("warpSetLowPowerMode(kWarpPowerModeRUN, 0 /* sleep seconds : irrelevant here */)() failed...\n");
-		}
-		
-		OSA_TimeDelay(200);
-		dumpProcessorState();
-		TPM_init(0);
-		TPM_init(1);
-		PWM_init(0,0);
-		PWM_init(0,1);
-		PWM_init(1,1);
-		PWM_SetDuty(1,1,4023);
-		PWM_SetDuty(0,0,4023);
-		PWM_SetDuty(0,1,2023);
-		OSA_TimeDelay(3000);
-		PWM_SetDuty(1,1,2023);
-		PWM_SetDuty(0,0,4023);
-		PWM_SetDuty(0,1,4023);
-		OSA_TimeDelay(3000);
-		PWM_SetDuty(1,1,4023);
-		PWM_SetDuty(0,0,2023);
-		PWM_SetDuty(0,1,4023);
-		while(1){}
+		    sampleBuffer[sampleIdx] = ADC16_DRV_GetConvValueRAW(0, 0);
+		    sampleIdx++;
+		    if (sampleIdx == nPoint){
+			bufferFilled = true;
+		    }
 		uint32_t startTime, stopTime;	
 	
-		OSA_TimeDelay(300);
-		uint32_t instance = 0;
-		uint32_t chnGroup = 0;
-		uint8_t  chn      = 2; //Sets ADC channel up to PTA9
-		ADC16_init_continuous(instance, chnGroup, chn);
-		warpPrint("\n Set up ADC");
 		uint32_t adcReading = 0;
-		startTime = OSA_TimeGetMsec();
-		int numSamples = 10000;
 		for(int iii = 0; iii < numSamples; iii++){
 			while(!adcRdyFlag){}
 			adcRdyFlag = false;
 		}
-		stopTime = OSA_TimeGetMsec();	
-		warpPrint("\nSamp Rate: %u", (uint32_t)(numSamples*1000) / (stopTime-startTime));
-		OSA_TimeDelay(200);
+
 		startTime = OSA_TimeGetMsec();
 		int n = 32;
-		long complex xarray[n];
+		long complex inBuf[n];
 		for(int i = 0; i<n; i++){
 			xarray[i] = i;
 		}
@@ -657,12 +649,6 @@ main(void)
 		stopTime = OSA_TimeGetMsec();
 		
 		warpPrint("\nFFTTIME: %u", (uint32_t)((stopTime-startTime)));
-		
-		warpSetLowPowerMode(kWarpPowerModeVLPR, 0 /* sleep seconds : irrelevant here */);
-		if (status != kWarpStatusOK)
-		{
-			warpPrint("warpSetLowPowerMode(kWarpPowerModeRUN, 0 /* sleep seconds : irrelevant here */)() failed...\n");
-		}
 
 		for(int ij = 0; ij < n; ij++){
 			warpPrint("\nresult: RE[%d] - IM[%d]", (int)creal(xarray[ij]), (int)cimag(xarray[ij]));
