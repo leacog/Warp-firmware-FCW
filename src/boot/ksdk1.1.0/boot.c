@@ -139,10 +139,10 @@ LLWU_IRQHandler(void)
 
 volatile bool adcRdyFlag = 0;
 volatile uint16_t adcRawValue = 0;
-uint8_t sampleIdx = 0;
-bool 	bufferFilled = false;
 void ADC0_IRQHandler(void)
 {
+	adcRdyFlag = true;
+	adcRawValue = ADC16_DRV_GetConvValueRAW(0, 0);
 }
 
 /*
@@ -620,40 +620,50 @@ main(void)
 
 	// ----- Init FFT -----
 	uint8_t nPoint = 32;
+	uint8_t sampleIdx = 0;
 	long sampleBuffer[nPoint]; 
 	long complex fftBuffer[nPoint];
+	long resultBuffer[3];
 
 	while (1)
 	{
-		
-		    sampleBuffer[sampleIdx] = ADC16_DRV_GetConvValueRAW(0, 0);
-		    sampleIdx++;
-		    if (sampleIdx == nPoint){
-			bufferFilled = true;
-		    }
-		uint32_t startTime, stopTime;	
-	
-		uint32_t adcReading = 0;
-		for(int iii = 0; iii < numSamples; iii++){
-			while(!adcRdyFlag){}
+		if(adcRdyFlag){
+			sampleBuffer[sampleIdx] = (long)adcRawValue;
 			adcRdyFlag = false;
+			sampleIdx++;
+			/*
+			if (sampleIdx == nPoint){
+				bufferFilled = true;
+				sampleIdx = 0;
+			}
+			*/
 		}
-
-		startTime = OSA_TimeGetMsec();
-		int n = 32;
-		long complex inBuf[n];
-		for(int i = 0; i<n; i++){
-			xarray[i] = i;
+		if(sampleIdx >= 32){
+			for(int i = 0; i<nPoint; i++){
+				fftBuffer[i] = sampleBuffer[i] + 0*I;
+				//bufferFilled = false;
+			}
+			FFT(&fftBuffer[0], nPoint);
+			fft2rgb(&fftBuffer[0]);     //Turn on new values for leds
+			sampleIdx = 0;
 		}
-		FFT(&xarray[0],n);
-		stopTime = OSA_TimeGetMsec();
-		
+		/*
 		warpPrint("\nFFTTIME: %u", (uint32_t)((stopTime-startTime)));
 
 		for(int ij = 0; ij < n; ij++){
 			warpPrint("\nresult: RE[%d] - IM[%d]", (int)creal(xarray[ij]), (int)cimag(xarray[ij]));
 		}
-		while(1){};
+		*/
 	}	
 	return 0;
+}
+
+void fft2rgb(long complex * x, uint8_t n){
+	double lowBin, midBin, highBin;
+	lowBin = cabs(x[3]) + cabs(x[4]) + cabs(x[5]);
+	midBin = cabs(x[8]) + cabs(x[9]) + cabs(x[10]);
+	highBin = cabs(x[13]) + cabs(x[14]) + cabs(x[15]);
+	warpPrint("\nlow: %u", lowBin);
+	warpPrint("\nmid: %u", midBin);
+	warpPrint("\nhigh: %u", highBin);
 }
