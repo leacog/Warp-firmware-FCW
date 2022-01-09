@@ -1,9 +1,7 @@
 #include "complex.h"
 
-void FFT(long complex * x, int N);
-void FFT2(long complex * twoPoints, long complex * outArray);
-void FFT4(long complex * fourPoints, long complex * outArray);
-void FFT8(long complex * fourPoints, long complex * outArray);
-void FFT16(long complex * fourPoints, long complex * outArray);
-void FFTN(long complex * x, int n);
-void bitReverse(long complex * x, int n);
+void FFT(int complex * x, int N);
+void FFTN(int complex * x, int n);
+void bitReverse(int complex * x, int N);
+void applyWindow32(int * samples);
+void octaves(int complex * x, uint16_t * output);

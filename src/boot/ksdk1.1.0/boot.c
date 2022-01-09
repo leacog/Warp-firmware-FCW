@@ -644,14 +644,14 @@ main(void)
 	// ----- Init FFT -----
 	uint8_t nPoint = 32;
 	uint8_t sampleIdx = 0;
-	long sampleBuffer[nPoint]; 
-	long complex fftBuffer[nPoint];
-	long resultBuffer[3];
+	int sampleBuffer[nPoint]; 
+	int complex fftBuffer[nPoint];
+	int resultBuffer[3];
 
 	while (1)
 	{
 		if(adcRdyFlag){
-			sampleBuffer[sampleIdx] = (long)adcRawValue;
+			sampleBuffer[sampleIdx] = ADC_DRV_ConvRAWData(adcRawValue) - 2048; // Subtract DC bias (could be done in hardware?)
 			adcRdyFlag = false;
 			sampleIdx++;
 			/*
@@ -662,13 +662,16 @@ main(void)
 			*/
 		}
 		if(sampleIdx >= nPoint){
+			applyWindow32(&sampleBuffer[0]);
 			for(int i = 0; i<nPoint; i++){
 				fftBuffer[i] = sampleBuffer[i] + 0*I;
 				//warpPrint("\n%u",sampleBuffer[i]);
 				//bufferFilled = false;
 			}
 			FFT(&fftBuffer[0], nPoint);
-			fft2rgb(&fftBuffer[0], nPoint);     //Turn on new values for leds
+			uint16_t RGBvalues [3];
+			octaves(&RGBvalues[0]);
+			SetRGB(&RGBvalues[0]);     //Turn on new values for leds
 			printFFT(&fftBuffer[0], nPoint);
 			sampleIdx = 0;
 			
@@ -692,36 +695,38 @@ main(void)
 
 uint8_t Ridx = 0, Gidx = 0, Bidx =0;
 
+#define PRINT_RGB
 
-void fft2rgb(long complex * x, uint8_t n){
+void SetRGB(uint16_t * RGBvals){
 
-	static int Rroll[rollNumber+1]; 
-	static int Groll[rollNumber+1]; 
-	static int Broll[rollNumber+1];
-	int nR = (int)cabs(x[1]) + (int)cabs(x[2]);
-	int nG = (int)cabs(x[4]) + (int)cabs(x[5]);
-	int nB = (int)cabs(x[8])+ (int)cabs(x[9]);
+	static uint16_t * Rroll[rollNumber+1]; 
+	static uint16_t * Groll[rollNumber+1]; 
+	static uint16_t * Broll[rollNumber+1];
 	
-	PWM_SetDuty(pwm_R, 4096 - (rollingAverage(nR, &Rroll[0], &Ridx) >> 4));
-	PWM_SetDuty(pwm_G, 4096 - (rollingAverage(nG, &Groll[0], &Gidx) >> 4));
-	PWM_SetDuty(pwm_B, 4096 - (rollingAverage(nB, &Broll[0], &Bidx) >> 4));
+	PWM_SetDuty(pwm_R, 4096 - (rollingAverage(RGBvals[0], Rroll, &Ridx)));
+	PWM_SetDuty(pwm_G, 4096 - (rollingAverage(RGBvals[1], Groll, &Gidx)));
+	PWM_SetDuty(pwm_B, 4096 - (rollingAverage(RGBvals[2], Broll, &Bidx)));
+	#ifdef PRINT_RGB
+	for(int i = 0; i<3; i++){
+		warpPrint("R: %u", (int));
+	}
+	#endif
 }
 
 void printFFT(long complex * x, int n){
 	static int j = 0;
 	if(j%100 == 0){
 		for(int i=0; i < n/2; i++){
-			warpPrint("\nHz:%u\t%u",i*(freq/n),(uint32_t)cabs(x[i])); 
-	
+			warpPrint("\nHz:%u\t%u",i*594,(uint32_t)cabs(x[i])); 
 		}
 	}
 	j++;
 }
 
-uint16_t rollingAverage(int newVal, int * rollArray, uint8_t * idx){
-	int oldVal = rollArray[*idx];
+uint16_t rollingAverage(uint16_t newVal, uint16_t * rollArray, uint8_t * idx){
+	uint16_t oldVal = rollArray[*idx]; 
 	rollArray[*idx] = newVal;
 	rollArray[rollNumber] += (newVal - oldVal)/rollNumber;
 	*idx = (*idx+1) % rollNumber;
-	return(((uint16_t)rollArray[rollNumber] * (uint16_t)rollArray[rollNumber]) >> 10);
+	return rollArray[rollNumber];
 }
