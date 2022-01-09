@@ -22,7 +22,7 @@ void ADC16_init_continuous(uint32_t instance, uint32_t chnGroup, uint8_t chn)
 	ADC16_DRV_StructInitUserConfigDefault(&MyAdcUserConfig);
 	MyAdcUserConfig.continuousConvEnable = true; // Enable continuous conversion. //
 	MyAdcUserConfig.clkSrcMode = kAdcClkSrcOfBusOrAltClk2; //Set bus clock divided by two
-	MyAdcUserConfig.clkDividerMode = kAdcClkDividerInputOf1;
+	MyAdcUserConfig.clkDividerMode = kAdcClkDividerInputOf2;
 	MyAdcUserConfig.intEnable = true;
 	ADC16_DRV_Init(instance, &MyAdcUserConfig);
 	// Configure the ADC channel and take an initial trigger. //

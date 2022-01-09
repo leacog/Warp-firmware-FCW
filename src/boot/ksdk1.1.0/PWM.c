@@ -22,7 +22,9 @@ void TPM_init(uint8_t instance){
   TPM_DRV_SetClock(instance, kTpmClockSourceModuleHighFreq, kTpmDividedBy32); //Set prescaler to 128 - clock is now 375kHz
 }
 
-void PWM_init(uint8_t instance, uint8_t channel){
+void PWM_init(pwmColour colour){
+  uint8_t instance = colour.tpmInstance;
+  uint8_t channel  = colour.tpmChannel;
   TPM_DRV_PwmStart(instance, &pwmConfig, channel);
   TPM_HAL_SetMod(g_tpmBaseAddr[instance], 4095); //12 bit colour value
   OSA_TimeDelay(10);
@@ -33,6 +35,9 @@ void PWM_init(uint8_t instance, uint8_t channel){
   warpPrint("\nInitalized PWM");
 }
 
-void PWM_SetDuty(uint8_t instance, uint8_t chn, uint16_t val){
-	TPM_HAL_SetChnCountVal(g_tpmBaseAddr[instance], chn, val);
+void PWM_SetDuty(pwmColour colour, uint16_t val){
+	if(val > (4096-256)){
+		val = 4096;
+	}
+	TPM_HAL_SetChnCountVal(g_tpmBaseAddr[colour.tpmInstance], colour.tpmChannel, val);
 }

@@ -73,7 +73,10 @@ char							gWarpPrintBuffer[kWarpDefaultPrintBufferSizeBytes];
 
 static void						lowPowerPinStates(void);
 static void						dumpProcessorState(void);
+int freq = 0;
 
+uint16_t rollingAverage(int newVal, int * rollArray, uint8_t * idx);
+#define rollNumber 25
 
 /*
  *	Derived from KSDK power_manager_demo.c BEGIN>>>
@@ -570,9 +573,12 @@ main(void)
 	 */
 	warpPrint("About to lowPowerPinStates()... ");
 	lowPowerPinStates();
-	PORT_HAL_SetMuxMode(PORTB_BASE, 10u,kPortMuxAlt2); // Set PTB10 up for TPM0_CH1
-	PORT_HAL_SetMuxMode(PORTB_BASE, 11u,kPortMuxAlt2); // Set PTB7 up for TPM1_CH0
-	PORT_HAL_SetMuxMode(PORTB_BASE, 13u,kPortMuxAlt2); // Set PTB13 up for TPM1_CH1
+//	PORT_HAL_SetMuxMode(PORTB_BASE, 10u,kPortMuxAlt2); // Set PTB10 up for TPM0_CH1
+//	PORT_HAL_SetMuxMode(PORTB_BASE, 11u,kPortMuxAlt2); // Set PTB7 up for TPM1_CH0
+//	PORT_HAL_SetMuxMode(PORTB_BASE, 13u,kPortMuxAlt2); // Set PTB13 up for TPM1_CH1
+	PORT_HAL_SetMuxMode(PORTA_BASE, 5u,kPortMuxAlt2); // Set PTA5 up for TPM0_CH1
+	PORT_HAL_SetMuxMode(PORTA_BASE, 6u,kPortMuxAlt2); // Set PTA6 up for TPM1_CH0
+	PORT_HAL_SetMuxMode(PORTB_BASE, 6u,kPortMuxAlt2); // Set PTB6 up for TPM1_CH1
 	warpPrint("done.\n");
 
 	#if (WARP_BUILD_ENABLE_GLAUX_VARIANT)
@@ -595,21 +601,28 @@ main(void)
 	warpPrint("Starting program! \n");
 	
 	// ----- Set Power Mode ---
+	
 		
-	warpSetLowPowerMode(kWarpPowerModeRUN, 0 /* sleep seconds : irrelevant here */);
+	warpSetLowPowerMode(kWarpPowerModeRUN, 0);
 	if (status != kWarpStatusOK)
 	{
-		warpPrint("warpSetLowPowerMode(kWarpPowerModeRUN, 0 /* sleep seconds : irrelevant here */)() failed...\n");
+		warpPrint("warpSetLowPowerMode(kWarpPowerModeRUN, 0)() failed...\n");
 	}
 	
+
 	dumpProcessorState();
 
 	// ----- Init PWM -------
+	
 	TPM_init(0);
 	TPM_init(1);
-	PWM_init(0,0);
-	PWM_init(0,1);
-	PWM_init(1,1);
+	PWM_init(pwm_R);
+	PWM_init(pwm_B);
+	PWM_init(pwm_G);
+	PWM_SetDuty(pwm_R, 1024);
+	PWM_SetDuty(pwm_B, 2024);
+	PWM_SetDuty(pwm_G, 3024);
+		
 
 	// ----- Init ADC -------
 	uint32_t instance = 0;
@@ -617,6 +630,16 @@ main(void)
 	uint8_t  chn      = 2; //Sets ADC channel up to PTA9
 	ADC16_init_continuous(instance, chnGroup, chn);
 	warpPrint("\n Set up ADC");
+	uint32_t ADC_time = OSA_TimeGetMsec();
+	int loopCount = 0;
+	while(OSA_TimeGetMsec() - ADC_time < 1000){
+		if(adcRdyFlag){
+			loopCount++;
+			adcRdyFlag = false;
+		}
+	}
+	freq = loopCount;
+	warpPrint("\nADC frequency: %u\n", (uint32_t)(freq));
 
 	// ----- Init FFT -----
 	uint8_t nPoint = 32;
@@ -638,14 +661,22 @@ main(void)
 			}
 			*/
 		}
-		if(sampleIdx >= 32){
+		if(sampleIdx >= nPoint){
 			for(int i = 0; i<nPoint; i++){
 				fftBuffer[i] = sampleBuffer[i] + 0*I;
+				//warpPrint("\n%u",sampleBuffer[i]);
 				//bufferFilled = false;
 			}
 			FFT(&fftBuffer[0], nPoint);
-			fft2rgb(&fftBuffer[0]);     //Turn on new values for leds
+			fft2rgb(&fftBuffer[0], nPoint);     //Turn on new values for leds
+			printFFT(&fftBuffer[0], nPoint);
 			sampleIdx = 0;
+			
+			//warpPrint("\nFFTTIME: %u", (uint32_t)((stopTime-startTime)));
+			
+			//for(int ij = 0; ij < nPoint; ij++){
+		//		warpPrint("\nresult: RE[%d] - IM[%d]", (int)creal(fftBuffer[ij]), (int)cimag(fftBuffer[ij]));
+		//	}
 		}
 		/*
 		warpPrint("\nFFTTIME: %u", (uint32_t)((stopTime-startTime)));
@@ -658,12 +689,39 @@ main(void)
 	return 0;
 }
 
+
+uint8_t Ridx = 0, Gidx = 0, Bidx =0;
+
+
 void fft2rgb(long complex * x, uint8_t n){
-	double lowBin, midBin, highBin;
-	lowBin = cabs(x[3]) + cabs(x[4]) + cabs(x[5]);
-	midBin = cabs(x[8]) + cabs(x[9]) + cabs(x[10]);
-	highBin = cabs(x[13]) + cabs(x[14]) + cabs(x[15]);
-	warpPrint("\nlow: %u", lowBin);
-	warpPrint("\nmid: %u", midBin);
-	warpPrint("\nhigh: %u", highBin);
+
+	static int Rroll[rollNumber+1]; 
+	static int Groll[rollNumber+1]; 
+	static int Broll[rollNumber+1];
+	int nR = (int)cabs(x[1]) + (int)cabs(x[2]);
+	int nG = (int)cabs(x[4]) + (int)cabs(x[5]);
+	int nB = (int)cabs(x[8])+ (int)cabs(x[9]);
+	
+	PWM_SetDuty(pwm_R, 4096 - (rollingAverage(nR, &Rroll[0], &Ridx) >> 4));
+	PWM_SetDuty(pwm_G, 4096 - (rollingAverage(nG, &Groll[0], &Gidx) >> 4));
+	PWM_SetDuty(pwm_B, 4096 - (rollingAverage(nB, &Broll[0], &Bidx) >> 4));
+}
+
+void printFFT(long complex * x, int n){
+	static int j = 0;
+	if(j%100 == 0){
+		for(int i=0; i < n/2; i++){
+			warpPrint("\nHz:%u\t%u",i*(freq/n),(uint32_t)cabs(x[i])); 
+	
+		}
+	}
+	j++;
+}
+
+uint16_t rollingAverage(int newVal, int * rollArray, uint8_t * idx){
+	int oldVal = rollArray[*idx];
+	rollArray[*idx] = newVal;
+	rollArray[rollNumber] += (newVal - oldVal)/rollNumber;
+	*idx = (*idx+1) % rollNumber;
+	return(((uint16_t)rollArray[rollNumber] * (uint16_t)rollArray[rollNumber]) >> 10);
 }
