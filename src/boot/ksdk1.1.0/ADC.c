@@ -5,7 +5,6 @@ void ADC16_init_continuous(uint32_t instance, uint32_t chnGroup, uint8_t chn)
 {
 	adc16_user_config_t MyAdcUserConfig;
 	adc16_chn_config_t MyChnConfig;
-	uint16_t MyAdcValue;
 
 	// Initialize the ADC converter. //
 	ADC16_DRV_StructInitUserConfigDefault(&MyAdcUserConfig);
@@ -23,10 +22,3 @@ void ADC16_init_continuous(uint32_t instance, uint32_t chnGroup, uint8_t chn)
 	ADC16_DRV_EnableHwAverage(instance, mode);
 	ADC16_DRV_ConfigConvChn(instance, chnGroup, &MyChnConfig);
 };
-
-uint32_t ADC16_poll_blocking(uint32_t instance, uint32_t chnGroup){
-	ADC16_DRV_WaitConvDone(instance, chnGroup);
-	uint16_t adcValue = ADC16_DRV_GetConvValueRAW(instance, chnGroup);
-	return 0;
-	//return ADC16_DRV_ConvRAWData(adcValue, false, kAdcResolutionBitOfSingleEndAs12); 
-}

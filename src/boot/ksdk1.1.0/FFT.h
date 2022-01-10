@@ -1,4 +1,5 @@
 #include "complex.h"
+#include "stdint.h"
 
 void FFT(int complex * x, int N);
 void FFTN(int complex * x, int n);

@@ -65,9 +65,9 @@ void octaves(int complex * x, uint16_t * output){
   output[0] = (uint16_t) (cabs(x[1])+cabs(x[2])); //Discard DC component
   output[1] = (uint16_t) (cabs(x[3]) + cabs(x[4]) + cabs(x[5]) + cabs(x[6]));
   output[2] = (uint16_t) (cabs(x[7])+cabs(x[8])+cabs(x[9])+cabs(x[10])+cabs(x[11])+cabs(x[12])+cabs(x[13])+cabs(x[14]));
-  output[0] >> 1;
-  output[1] >> 2;
-  output[2] >> 3;
+  output[0] = output[0] >> 1;
+  output[1] = output[1] >> 2;
+  output[2] = output[2] >> 2;
 }
 
 void FFTN(int complex * x, int n){

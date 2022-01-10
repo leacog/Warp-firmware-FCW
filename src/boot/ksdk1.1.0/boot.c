@@ -75,8 +75,10 @@ static void						lowPowerPinStates(void);
 static void						dumpProcessorState(void);
 int freq = 0;
 
-uint16_t rollingAverage(int newVal, int * rollArray, uint8_t * idx);
-#define rollNumber 25
+uint16_t rollingAverage(uint16_t newVal, uint16_t * rollArray, uint8_t * idx);
+void SetRGB(uint16_t * RGBvals);
+void printFFT(int complex * x, int n);
+#define rollNumber 3
 
 /*
  *	Derived from KSDK power_manager_demo.c BEGIN>>>
@@ -383,7 +385,7 @@ void
 		/*
 		 *	NOTE: The KL03 has no PTA10 or PTA11
 		 */
-		PORT_HAL_SetMuxMode(PORTA_BASE, 12, kPortPinDisabled);
+		//PORT_HAL_SetMuxMode(PORTA_BASE, 12, kPortPinDisabled);
 
 
 		/*
@@ -627,7 +629,8 @@ main(void)
 	// ----- Init ADC -------
 	uint32_t instance = 0;
 	uint32_t chnGroup = 0;
-	uint8_t  chn      = 2; //Sets ADC channel up to PTA9
+	uint8_t  chn      = 2u; //Sets ADC channel up to. PTA9 = 2, PB12 = 0, PT0 = 15
+	//PORT_HAL_SetMuxMode(PORTA_BASE, 12u,kPortMuxAsGpio); // Set PTA12 for ADC
 	ADC16_init_continuous(instance, chnGroup, chn);
 	warpPrint("\n Set up ADC");
 	uint32_t ADC_time = OSA_TimeGetMsec();
@@ -646,12 +649,11 @@ main(void)
 	uint8_t sampleIdx = 0;
 	int sampleBuffer[nPoint]; 
 	int complex fftBuffer[nPoint];
-	int resultBuffer[3];
 
 	while (1)
 	{
 		if(adcRdyFlag){
-			sampleBuffer[sampleIdx] = ADC_DRV_ConvRAWData(adcRawValue) - 2048; // Subtract DC bias (could be done in hardware?)
+			sampleBuffer[sampleIdx] = ADC16_DRV_ConvRAWData(adcRawValue, false, kAdcResolutionBitOfSingleEndAs12);
 			adcRdyFlag = false;
 			sampleIdx++;
 			/*
@@ -670,16 +672,13 @@ main(void)
 			}
 			FFT(&fftBuffer[0], nPoint);
 			uint16_t RGBvalues [3];
-			octaves(&RGBvalues[0]);
+			octaves(&fftBuffer[0], &RGBvalues[0]);
 			SetRGB(&RGBvalues[0]);     //Turn on new values for leds
 			printFFT(&fftBuffer[0], nPoint);
 			sampleIdx = 0;
 			
 			//warpPrint("\nFFTTIME: %u", (uint32_t)((stopTime-startTime)));
 			
-			//for(int ij = 0; ij < nPoint; ij++){
-		//		warpPrint("\nresult: RE[%d] - IM[%d]", (int)creal(fftBuffer[ij]), (int)cimag(fftBuffer[ij]));
-		//	}
 		}
 		/*
 		warpPrint("\nFFTTIME: %u", (uint32_t)((stopTime-startTime)));
@@ -693,27 +692,43 @@ main(void)
 }
 
 
-uint8_t Ridx = 0, Gidx = 0, Bidx =0;
+//uint8_t Ridx = 0, Gidx = 0, Bidx =0;
 
-#define PRINT_RGB
+//#define PRINT_RGB 1
 
 void SetRGB(uint16_t * RGBvals){
-
-	static uint16_t * Rroll[rollNumber+1]; 
-	static uint16_t * Groll[rollNumber+1]; 
-	static uint16_t * Broll[rollNumber+1];
+	/*
+	static uint16_t Rroll[rollNumber+1]; 
+	static uint16_t Groll[rollNumber+1]; 
+	static uint16_t Broll[rollNumber+1];
 	
-	PWM_SetDuty(pwm_R, 4096 - (rollingAverage(RGBvals[0], Rroll, &Ridx)));
-	PWM_SetDuty(pwm_G, 4096 - (rollingAverage(RGBvals[1], Groll, &Gidx)));
-	PWM_SetDuty(pwm_B, 4096 - (rollingAverage(RGBvals[2], Broll, &Bidx)));
+	PWM_SetDuty(pwm_R, 4096 - (rollingAverage(RGBvals[0], &Rroll[0], &Ridx)));
+	PWM_SetDuty(pwm_G, 4096 - (rollingAverage(RGBvals[1], &Groll[0], &Gidx)));
+	PWM_SetDuty(pwm_B, 4096 - (rollingAverage(RGBvals[2], &Broll[0], &Bidx)));
 	#ifdef PRINT_RGB
 	for(int i = 0; i<3; i++){
-		warpPrint("R: %u", (int));
+		warpPrint("\nRGB: %u", (int)RGBvals[i]);
 	}
+	warpPrint("\n%u", (uint32_t)Rroll[rollNumber]);
+	warpPrint("\n%u", (uint32_t)Groll[rollNumber]);
+	warpPrint("\n%u", (uint32_t)Broll[rollNumber]);
 	#endif
+	*/
+	for(int i = 0; i<3; i++){
+		if(RGBvals[i] > 4096) RGBvals[i] = 4096;
+	}
+	if(RGBvals[0] > 200) { RGBvals[0] -= 200;} else {RGBvals[0] = 0;}
+	if(RGBvals[1] > 60) { RGBvals[1] -= 60;} else {RGBvals[1] = 0;}
+	if(RGBvals[2] > 30) { RGBvals[2] -= 30;} else {RGBvals[2] = 0;}
+	RGBvals[0] = (RGBvals[0] * RGBvals[0]) >> 8;
+	warpPrint("\nR:\t%u\tG:\t%u\tB:\t%u", (int)RGBvals[0], (int)RGBvals[1], (int)RGBvals[2]);
+	PWM_SetDuty(pwm_R, RGBvals[0]);
+	PWM_SetDuty(pwm_G, RGBvals[1]);
+	PWM_SetDuty(pwm_B, RGBvals[2]);
+	
 }
 
-void printFFT(long complex * x, int n){
+void printFFT(int complex * x, int n){
 	static int j = 0;
 	if(j%100 == 0){
 		for(int i=0; i < n/2; i++){
@@ -723,10 +738,10 @@ void printFFT(long complex * x, int n){
 	j++;
 }
 
-uint16_t rollingAverage(uint16_t newVal, uint16_t * rollArray, uint8_t * idx){
-	uint16_t oldVal = rollArray[*idx]; 
-	rollArray[*idx] = newVal;
-	rollArray[rollNumber] += (newVal - oldVal)/rollNumber;
-	*idx = (*idx+1) % rollNumber;
-	return rollArray[rollNumber];
-}
+//uint16_t rollingAverage(uint16_t newVal, uint16_t * rollArray, uint8_t * idx){
+//	uint16_t oldVal = rollArray[*idx]; 
+//	rollArray[*idx] = newVal;
+//	rollArray[rollNumber] += (newVal - oldVal)/rollNumber;
+//	*idx = (*idx+1) % rollNumber;
+//	return rollArray[rollNumber];
+//}
