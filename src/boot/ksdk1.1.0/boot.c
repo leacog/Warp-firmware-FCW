@@ -76,9 +76,10 @@ static void						dumpProcessorState(void);
 int freq = 0;
 
 uint16_t rollingAverage(uint16_t newVal, uint16_t * rollArray, uint8_t * idx);
-void SetRGB(uint16_t * RGBvals);
+void SetTrebbleRGB(uint16_t * RGBvals);
+void SetBaseRGB(uint16_t * RGBvals);
 void printFFT(int complex * x, int n);
-#define rollNumber 3
+#define rollNumber 4
 
 /*
  *	Derived from KSDK power_manager_demo.c BEGIN>>>
@@ -558,7 +559,7 @@ main(void)
 	 *	See also Section 30.3.3 GPIO Initialization of KSDK13APIRM.pdf
 	 */
 	warpPrint("About to GPIO_DRV_Init()... ");
-	//GPIO_DRV_Init(inputPins  /* input pins */, outputPins  /* output pins */);
+	GPIO_DRV_Init(inputPins  /* input pins */, outputPins  /* output pins */);
 	warpPrint("done.\n");
 
 	/*
@@ -647,13 +648,21 @@ main(void)
 	// ----- Init FFT -----
 	uint8_t nPoint = 32;
 	uint8_t sampleIdx = 0;
-	int sampleBuffer[nPoint]; 
+	uint8_t slowSampleIdx = 0;
+	uint8_t slowSampleDivider = 4;
+	int sampleBuffer[nPoint];
+       	int slowSampleBuffer[nPoint];	
 	int complex fftBuffer[nPoint];
-
+	
 	while (1)
 	{
 		if(adcRdyFlag){
-			sampleBuffer[sampleIdx] = ADC16_DRV_ConvRAWData(adcRawValue, false, kAdcResolutionBitOfSingleEndAs12);
+			int newSample = ADC16_DRV_ConvRAWData(adcRawValue, false, kAdcResolutionBitOfSingleEndAs12);
+			sampleBuffer[sampleIdx] = newSample - 2048;
+			if( (sampleIdx % slowSampleDivider) == 0){
+				slowSampleBuffer[slowSampleIdx] = newSample - 2048;
+				slowSampleIdx++;
+			}
 			adcRdyFlag = false;
 			sampleIdx++;
 			/*
@@ -664,6 +673,8 @@ main(void)
 			*/
 		}
 		if(sampleIdx >= nPoint){
+			uint32_t startTime, stopTime;
+			startTime =OSA_TimeGetMsec();
 			applyWindow32(&sampleBuffer[0]);
 			for(int i = 0; i<nPoint; i++){
 				fftBuffer[i] = sampleBuffer[i] + 0*I;
@@ -671,14 +682,33 @@ main(void)
 				//bufferFilled = false;
 			}
 			FFT(&fftBuffer[0], nPoint);
+			//printFFT(&fftBuffer[0], nPoint);
 			uint16_t RGBvalues [3];
 			octaves(&fftBuffer[0], &RGBvalues[0]);
-			SetRGB(&RGBvalues[0]);     //Turn on new values for leds
-			printFFT(&fftBuffer[0], nPoint);
+			SetTrebbleRGB(&RGBvalues[0]);     //Turn on new values for leds
 			sampleIdx = 0;
+			stopTime = OSA_TimeGetMsec();
 			
-			//warpPrint("\nFFTTIME: %u", (uint32_t)((stopTime-startTime)));
+			//warpPrint("\nFFT-TIME: %u", (uint32_t)((stopTime-startTime)));
 			
+		} 
+		
+		if (slowSampleIdx >= nPoint) {  //Should time this function to see how long it takes. 
+			//applyWindow32(&slowSampleBuffer[0]);
+			for(int i = 0; i<nPoint; i++){
+				fftBuffer[i] = slowSampleBuffer[i] + 0*I;
+				//warpPrint("\n%u",sampleBuffer[i]);
+				//bufferFilled = false;
+			}
+			FFT(&fftBuffer[0], nPoint);
+			//printFFT(&fftBuffer[0], nPoint);
+			//for (int i=0; i<nPoint; i++){
+			//	warpPrint("\n%d", slowSampleBuffer[i]);
+			//}
+			uint16_t RGBvalues [3];
+			octaves(&fftBuffer[0], &RGBvalues[0]);
+			SetBaseRGB(&RGBvalues[0]);     //Turn on new values for leds
+			slowSampleIdx = 0;
 		}
 		/*
 		warpPrint("\nFFTTIME: %u", (uint32_t)((stopTime-startTime)));
@@ -692,11 +722,12 @@ main(void)
 }
 
 
-//uint8_t Ridx = 0, Gidx = 0, Bidx =0;
+uint8_t Ridx = 0;//, Gidx = 0, Bidx =0;
 
 //#define PRINT_RGB 1
 
-void SetRGB(uint16_t * RGBvals){
+
+void SetTrebbleRGB(uint16_t * RGBvals){
 	/*
 	static uint16_t Rroll[rollNumber+1]; 
 	static uint16_t Groll[rollNumber+1]; 
@@ -714,34 +745,50 @@ void SetRGB(uint16_t * RGBvals){
 	warpPrint("\n%u", (uint32_t)Broll[rollNumber]);
 	#endif
 	*/
-	for(int i = 0; i<3; i++){
+	for(int i = 0; i<2; i++){
 		if(RGBvals[i] > 4096) RGBvals[i] = 4096;
 	}
-	if(RGBvals[0] > 200) { RGBvals[0] -= 200;} else {RGBvals[0] = 0;}
-	if(RGBvals[1] > 60) { RGBvals[1] -= 60;} else {RGBvals[1] = 0;}
-	if(RGBvals[2] > 30) { RGBvals[2] -= 30;} else {RGBvals[2] = 0;}
-	RGBvals[0] = (RGBvals[0] * RGBvals[0]) >> 8;
-	warpPrint("\nR:\t%u\tG:\t%u\tB:\t%u", (int)RGBvals[0], (int)RGBvals[1], (int)RGBvals[2]);
-	PWM_SetDuty(pwm_R, RGBvals[0]);
+	if(RGBvals[0] > 60) { RGBvals[0] -= 60;} else {RGBvals[0] = 0;}
+	if(RGBvals[1] > 30) { RGBvals[1] -= 30;} else {RGBvals[1] = 0;}
+	//warpPrint("\nG:\t%u\tB:\t%u", (int)RGBvals[0], (int)RGBvals[1]);
+	PWM_SetDuty(pwm_B, RGBvals[0]);
 	PWM_SetDuty(pwm_G, RGBvals[1]);
-	PWM_SetDuty(pwm_B, RGBvals[2]);
-	
+}
+
+void SetBaseRGB(uint16_t * RGBvals){
+	static uint16_t Rroll[rollNumber+1];
+	if(RGBvals[0] > 60) { RGBvals[0] -= 60;} else {RGBvals[0] = 0;}
+	//RGBvals[0] = (RGBvals[0] * RGBvals[0] ) / 2048;
+	if(RGBvals[0] > 4096) RGBvals[0] = 4096;
+	PWM_SetDuty(pwm_R, rollingAverage(RGBvals[0], &Rroll[0], &Ridx));
+	PWM_SetDuty(pwm_R, RGBvals[0]);
+	warpPrint("\nR:\t%u", (int)RGBvals[0]);
 }
 
 void printFFT(int complex * x, int n){
 	static int j = 0;
 	if(j%100 == 0){
 		for(int i=0; i < n/2; i++){
-			warpPrint("\nHz:%u\t%u",i*594,(uint32_t)cabs(x[i])); 
+			warpPrint("\nHz:%u\t%u",i*(594/4),(uint32_t)cabs(x[i])); 
 		}
 	}
 	j++;
 }
 
-//uint16_t rollingAverage(uint16_t newVal, uint16_t * rollArray, uint8_t * idx){
-//	uint16_t oldVal = rollArray[*idx]; 
-//	rollArray[*idx] = newVal;
-//	rollArray[rollNumber] += (newVal - oldVal)/rollNumber;
-//	*idx = (*idx+1) % rollNumber;
-//	return rollArray[rollNumber];
-//}
+uint16_t impulseConstant[10] = {20,13,9,7,5,4,3,2};
+uint16_t impulseNormal = 67;
+
+uint16_t rollingAverage(uint16_t newVal, uint16_t * rollArray, uint8_t * idx){
+	uint16_t oldVal = rollArray[*idx]; 
+	rollArray[*idx] = newVal;
+	//int total = (int)rollArray[rollNumber];
+	//int toAdd = ((int)newVal - (int)oldVal)/rollNumber;
+	//int newTotal = total + toAdd;
+	//rollArray[rollNumber] += (uint16_t)newTotal;
+	//*idx = (*idx+1) % rollNumber;
+	uint16_t total = 0;
+	for(int i = 0; i<rollNumber; i++){
+		total += (rollArray[(*idx + i) % rollNumber] * impulseConstant[i] )/ impulseNormal;
+	}
+	return total;
+}

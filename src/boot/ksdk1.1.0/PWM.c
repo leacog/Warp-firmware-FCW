@@ -19,7 +19,7 @@ tpm_pwm_param_t pwmConfig = {
 
 void TPM_init(uint8_t instance){
   TPM_DRV_Init(instance, &basePwmConfig);
-  TPM_DRV_SetClock(instance, kTpmClockSourceModuleHighFreq, kTpmDividedBy32); //Set prescaler to 128 - clock is now 375kHz
+  TPM_DRV_SetClock(instance, kTpmClockSourceModuleHighFreq, kTpmDividedBy16); //Set prescaler to 128 - clock is now 375kHz
 }
 
 void PWM_init(pwmColour colour){
