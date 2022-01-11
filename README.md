@@ -1,8 +1,14 @@
 # LitShow Shield
+Mikael Cognell - __mec77__ 
+
+4B25: Coursework Item 5 
+
+St Catharine's College 
+
 <img src="images/4B25_LitShield.jpg" width="60%">
 
 ## System Overview
-The LitShow shield runs on a Freescale/NXP FRDM KL03 evaluation board and  creates a real-time light show to music. The board uses a microphone to measure audio, analyses the signal on the MCU and finally provides three channels of Pulse-Width Modulated 12V as output for e.g. LED strips. In the current firmware, the channels each respond to a different frequency band.
+The LitShow shield runs on a Freescale/NXP FRDM KL03 evaluation board and  creates a real-time light show to music. The board uses a microphone to measure audio, analyses the signal on the MCU and outputs three channels of Pulse-Width Modulated 12V for LED strips. In the current firmware, the channels each respond to a different frequency band.
 
 <img src="images/4B25_LS_Overview.png" width="80%" align="center"/> 
 
@@ -21,10 +27,10 @@ The shield connects to a Freescale/NXP FRDM KL03 evaluation board, which perform
 
 The software is split into three components/source files:
 #### [ADC.c](src\boot\ksdk1.1.0\ADC.c) - Analog to digtal conversion
-The ADC is configured to sample the audio at 38kHz and store the result in a buffer. To ensure a constant delay between samples, the ADC operates in continuous conversion mode. At the completion of a conversion (measurment), an interupt signal is generated and the ADC0_IRQHandler() ISR stores the latest sample in a buffer. Using interupts as opposed to e.g. a polling approach allows the main FFT algorithm to run while the next batch of samples are collected.
+The ADC is configured to sample the audio at 38kHz (to fufill the nyquist sampling criteria for the audible range) and stores the result in a buffer. To ensure a constant delay between samples, the ADC operates in continuous conversion mode. At the completion of a conversion (measurment), an interupt signal is generated and the ADC0_IRQHandler() ISR stores the latest sample in a buffer. Using interupts as opposed to e.g. a polling approach allows the main FFT algorithm to run while the next batch of samples are collected.
 
 #### [FFT.c](src\boot\ksdk1.1.0\FFT.c) - Fast Fourier Transform
-To extract freqeuncy information a discret fourier transform is computed on the sample using a Radix-2 FFT algorithm. There are two compilation options: recursive N-point and 64-point hardcoded.
+To extract freqeuncy information a discret fourier transform is computed on the sample batch using a Radix-2 FFT algorithm. There are two compilation options: recursive N-point and 64-point hardcoded.
 
 The MKL03Z32VFK4 MCU is very constrained in memory, with only 2KB of SRAM. To minimize memory usage, the FFT algorithm is implemented in-place i.e. operates directly on the complex input array. To minimize the peak demand on the stack, the sample re-ordering via bit-reversal which is required at the start of the FFT is executed before the complex array is put on the stack. This way the two arrays never co-exist on the stack. The result is that the algorithm only occupies N * sizeof(int complex) + 2 of memory on the stack (514 Bytes for 64 point FFT). Still, to accomodate the high memory demand, the default Warp linker script is modified to increase maximum size of the stack, and several modifications to the Warp firmware was performed to minimize the RAM usage (which leaves more space for the stack).
 

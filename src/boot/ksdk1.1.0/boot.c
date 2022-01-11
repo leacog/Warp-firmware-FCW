@@ -75,11 +75,8 @@ static void						lowPowerPinStates(void);
 static void						dumpProcessorState(void);
 int freq = 0;
 
-uint16_t rollingAverage(uint16_t newVal, uint16_t * rollArray, uint8_t * idx);
-void SetTrebbleRGB(uint16_t * RGBvals);
-void SetBaseRGB(uint16_t * RGBvals);
 void printFFT(int complex * x, int n);
-#define rollNumber 4
+#define rollNumber 4   										//C doesn't allow initialization of variably sized arrays 
 
 /*
  *	Derived from KSDK power_manager_demo.c BEGIN>>>
@@ -121,48 +118,14 @@ clockManagerCallbackRoutine(clock_notify_struct_t *  notify, void *  callbackDat
 	return result;
 }
 
-/*
- *	LLW_IRQHandler override. Since FRDM_KL03Z48M is not defined,
- *	according to power_manager_demo.c, what we need is LLW_IRQHandler.
- *	However, elsewhere in the power_manager_demo.c, the code assumes
- *	FRDM_KL03Z48M _is_ defined (e.g., we need to use LLWU_IRQn, not
- *	LLW_IRQn). Looking through the code base, we see in
- *
- *		ksdk1.1.0/platform/startup/MKL03Z4/gcc/startup_MKL03Z4.S
- *
- *	that the startup initialization assembly requires LLWU_IRQHandler,
- *	not LLW_IRQHandler. See power_manager_demo.c, circa line 216, if
- *	you want to find out more about this dicsussion.
- */
-void
-LLWU_IRQHandler(void)
-{
-	/*
-	 *	BOARD_* defines are defined in warp.h
-	 */
-	LLWU_HAL_ClearExternalPinWakeupFlag(LLWU_BASE, (llwu_wakeup_pin_t)BOARD_SW_LLWU_EXT_PIN);
-}
 
+// -----  ADC interrupt routine - should be placed in ADC.c 
 volatile bool adcRdyFlag = 0;
 volatile uint16_t adcRawValue = 0;
 void ADC0_IRQHandler(void)
 {
 	adcRdyFlag = true;
 	adcRawValue = ADC16_DRV_GetConvValueRAW(0, 0);
-}
-
-/*
- *	IRQ handler for the interrupt from RTC, which we wire up
- *	to PTA0/IRQ0/LLWU_P7 in Glaux. BOARD_SW_LLWU_IRQ_HANDLER
- *	is a synonym for PORTA_IRQHandler.
- */
-void
-BOARD_SW_LLWU_IRQ_HANDLER(void)
-{
-	/*
-	 *	BOARD_* defines are defined in warp.h
-	 */
-	PORT_HAL_ClearPortIntFlag(BOARD_SW_LLWU_BASE);
 }
 
 /*
@@ -721,74 +684,12 @@ main(void)
 	return 0;
 }
 
-
-uint8_t Ridx = 0;//, Gidx = 0, Bidx =0;
-
-//#define PRINT_RGB 1
-
-
-void SetTrebbleRGB(uint16_t * RGBvals){
-	/*
-	static uint16_t Rroll[rollNumber+1]; 
-	static uint16_t Groll[rollNumber+1]; 
-	static uint16_t Broll[rollNumber+1];
-	
-	PWM_SetDuty(pwm_R, 4096 - (rollingAverage(RGBvals[0], &Rroll[0], &Ridx)));
-	PWM_SetDuty(pwm_G, 4096 - (rollingAverage(RGBvals[1], &Groll[0], &Gidx)));
-	PWM_SetDuty(pwm_B, 4096 - (rollingAverage(RGBvals[2], &Broll[0], &Bidx)));
-	#ifdef PRINT_RGB
-	for(int i = 0; i<3; i++){
-		warpPrint("\nRGB: %u", (int)RGBvals[i]);
-	}
-	warpPrint("\n%u", (uint32_t)Rroll[rollNumber]);
-	warpPrint("\n%u", (uint32_t)Groll[rollNumber]);
-	warpPrint("\n%u", (uint32_t)Broll[rollNumber]);
-	#endif
-	*/
-	for(int i = 0; i<2; i++){
-		if(RGBvals[i] > 4096) RGBvals[i] = 4096;
-	}
-	if(RGBvals[0] > 60) { RGBvals[0] -= 60;} else {RGBvals[0] = 0;}
-	if(RGBvals[1] > 30) { RGBvals[1] -= 30;} else {RGBvals[1] = 0;}
-	//warpPrint("\nG:\t%u\tB:\t%u", (int)RGBvals[0], (int)RGBvals[1]);
-	PWM_SetDuty(pwm_B, RGBvals[0]);
-	PWM_SetDuty(pwm_G, RGBvals[1]);
-}
-
-void SetBaseRGB(uint16_t * RGBvals){
-	static uint16_t Rroll[rollNumber+1];
-	if(RGBvals[0] > 60) { RGBvals[0] -= 60;} else {RGBvals[0] = 0;}
-	//RGBvals[0] = (RGBvals[0] * RGBvals[0] ) / 2048;
-	if(RGBvals[0] > 4096) RGBvals[0] = 4096;
-	PWM_SetDuty(pwm_R, rollingAverage(RGBvals[0], &Rroll[0], &Ridx));
-	PWM_SetDuty(pwm_R, RGBvals[0]);
-	warpPrint("\nR:\t%u", (int)RGBvals[0]);
-}
-
 void printFFT(int complex * x, int n){
 	static int j = 0;
 	if(j%100 == 0){
 		for(int i=0; i < n/2; i++){
-			warpPrint("\nHz:%u\t%u",i*(594/4),(uint32_t)cabs(x[i])); 
+			warpPrint("\nHz:%u\t%u", i*freq ,(uint32_t)cabs(x[i])); 
 		}
 	}
 	j++;
-}
-
-uint16_t impulseConstant[10] = {20,13,9,7,5,4,3,2};
-uint16_t impulseNormal = 67;
-
-uint16_t rollingAverage(uint16_t newVal, uint16_t * rollArray, uint8_t * idx){
-	uint16_t oldVal = rollArray[*idx]; 
-	rollArray[*idx] = newVal;
-	//int total = (int)rollArray[rollNumber];
-	//int toAdd = ((int)newVal - (int)oldVal)/rollNumber;
-	//int newTotal = total + toAdd;
-	//rollArray[rollNumber] += (uint16_t)newTotal;
-	//*idx = (*idx+1) % rollNumber;
-	uint16_t total = 0;
-	for(int i = 0; i<rollNumber; i++){
-		total += (rollArray[(*idx + i) % rollNumber] * impulseConstant[i] )/ impulseNormal;
-	}
-	return total;
 }
