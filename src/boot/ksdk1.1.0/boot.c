@@ -56,7 +56,7 @@
 #include "glaux.h"
 #include "warp.h"
 #include "errstrs.h"
-#include "gpio_pins.h"
+//#include "gpio_pins.h"
 #include "SEGGER_RTT.h"
 #include "fsl_adc16_driver.h"
 #include "ADC.h"
@@ -75,8 +75,8 @@ static void						lowPowerPinStates(void);
 static void						dumpProcessorState(void);
 int freq = 0;
 
+void fftAndAudio(int * x, uint8_t N);
 void printFFT(int complex * x, int n);
-#define rollNumber 4   										//C doesn't allow initialization of variably sized arrays 
 
 /*
  *	Derived from KSDK power_manager_demo.c BEGIN>>>
@@ -522,7 +522,7 @@ main(void)
 	 *	See also Section 30.3.3 GPIO Initialization of KSDK13APIRM.pdf
 	 */
 	warpPrint("About to GPIO_DRV_Init()... ");
-	GPIO_DRV_Init(inputPins  /* input pins */, outputPins  /* output pins */);
+	//GPIO_DRV_Init(inputPins  /* input pins */, outputPins  /* output pins */);
 	warpPrint("done.\n");
 
 	/*
@@ -547,16 +547,6 @@ main(void)
 	PORT_HAL_SetMuxMode(PORTB_BASE, 6u,kPortMuxAlt2); // Set PTB6 up for TPM1_CH1
 	warpPrint("done.\n");
 
-	#if (WARP_BUILD_ENABLE_GLAUX_VARIANT)
-		blinkLED(kGlauxPinLED);
-		blinkLED(kGlauxPinLED);
-		blinkLED(kGlauxPinLED);
-
-		USED(disableTPS62740);
-		USED(enableTPS62740);
-		USED(setTPS62740CommonControlLines);
-	#endif
-
 	/*
 	 *	At this point, we consider the system "booted" and, e.g., warpPrint()s
 	 *	will also be sent to the BLE if that is compiled in.
@@ -567,14 +557,12 @@ main(void)
 	warpPrint("Starting program! \n");
 	
 	// ----- Set Power Mode ---
-	
 		
 	warpSetLowPowerMode(kWarpPowerModeRUN, 0);
 	if (status != kWarpStatusOK)
 	{
 		warpPrint("warpSetLowPowerMode(kWarpPowerModeRUN, 0)() failed...\n");
 	}
-	
 
 	dumpProcessorState();
 
@@ -586,9 +574,8 @@ main(void)
 	PWM_init(pwm_B);
 	PWM_init(pwm_G);
 	PWM_SetDuty(pwm_R, 1024);
-	PWM_SetDuty(pwm_B, 2024);
+	PWM_SetDuty(pwm_B, 0);
 	PWM_SetDuty(pwm_G, 3024);
-		
 
 	// ----- Init ADC -------
 	uint32_t instance = 0;
@@ -609,86 +596,56 @@ main(void)
 	warpPrint("\nADC frequency: %u\n", (uint32_t)(freq));
 
 	// ----- Init FFT -----
-	uint8_t nPoint = 32;
+	const uint8_t nPoint = 64;
 	uint8_t sampleIdx = 0;
 	uint8_t slowSampleIdx = 0;
 	uint8_t slowSampleDivider = 4;
 	int sampleBuffer[nPoint];
        	int slowSampleBuffer[nPoint];	
-	int complex fftBuffer[nPoint];
 	
 	while (1)
 	{
 		if(adcRdyFlag){
 			int newSample = ADC16_DRV_ConvRAWData(adcRawValue, false, kAdcResolutionBitOfSingleEndAs12);
 			sampleBuffer[sampleIdx] = newSample - 2048;
-			if( (sampleIdx % slowSampleDivider) == 0){
-				slowSampleBuffer[slowSampleIdx] = newSample - 2048;
-				slowSampleIdx++;
-			}
 			adcRdyFlag = false;
 			sampleIdx++;
-			/*
-			if (sampleIdx == nPoint){
-				bufferFilled = true;
-				sampleIdx = 0;
-			}
-			*/
 		}
 		if(sampleIdx >= nPoint){
 			uint32_t startTime, stopTime;
 			startTime =OSA_TimeGetMsec();
-			applyWindow32(&sampleBuffer[0]);
-			for(int i = 0; i<nPoint; i++){
-				fftBuffer[i] = sampleBuffer[i] + 0*I;
-				//warpPrint("\n%u",sampleBuffer[i]);
-				//bufferFilled = false;
-			}
-			FFT(&fftBuffer[0], nPoint);
-			//printFFT(&fftBuffer[0], nPoint);
-			uint16_t RGBvalues [3];
-			octaves(&fftBuffer[0], &RGBvalues[0]);
-			SetTrebbleRGB(&RGBvalues[0]);     //Turn on new values for leds
+			//applyWindow32(&sampleBuffer[0]);
+			bitReverse(&sampleBuffer[0], nPoint);    //in-place bit reverse
+			fftAndAudio(&sampleBuffer[0], nPoint);		
 			sampleIdx = 0;
 			stopTime = OSA_TimeGetMsec();
 			
 			//warpPrint("\nFFT-TIME: %u", (uint32_t)((stopTime-startTime)));
 			
 		} 
-		
-		if (slowSampleIdx >= nPoint) {  //Should time this function to see how long it takes. 
-			//applyWindow32(&slowSampleBuffer[0]);
-			for(int i = 0; i<nPoint; i++){
-				fftBuffer[i] = slowSampleBuffer[i] + 0*I;
-				//warpPrint("\n%u",sampleBuffer[i]);
-				//bufferFilled = false;
-			}
-			FFT(&fftBuffer[0], nPoint);
-			//printFFT(&fftBuffer[0], nPoint);
-			//for (int i=0; i<nPoint; i++){
-			//	warpPrint("\n%d", slowSampleBuffer[i]);
-			//}
-			uint16_t RGBvalues [3];
-			octaves(&fftBuffer[0], &RGBvalues[0]);
-			SetBaseRGB(&RGBvalues[0]);     //Turn on new values for leds
-			slowSampleIdx = 0;
-		}
-		/*
-		warpPrint("\nFFTTIME: %u", (uint32_t)((stopTime-startTime)));
-
-		for(int ij = 0; ij < n; ij++){
-			warpPrint("\nresult: RE[%d] - IM[%d]", (int)creal(xarray[ij]), (int)cimag(xarray[ij]));
-		}
-		*/
 	}	
 	return 0;
+}
+
+void fftAndAudio(int * x, uint8_t N) //Seperated out just so stack memory is cleared, but should be better ways to do this
+{
+	int complex fftBuffer[N];
+	for(int i = 0; i<N; i++){
+		fftBuffer[i] = x[i] + 0*I;
+		//warpPrint("\n%u",sampleBuffer[i]);
+	}
+	FFT(&fftBuffer[0], N);
+	//printFFT(&fftBuffer[0], N);
+	uint16_t RGBvalues [3];
+	octaves(&fftBuffer[0], &RGBvalues[0], (uint8_t)N);
+	SetTrebbleRGB(&RGBvalues[0]);     //Turn on new values for leds
 }
 
 void printFFT(int complex * x, int n){
 	static int j = 0;
 	if(j%100 == 0){
 		for(int i=0; i < n/2; i++){
-			warpPrint("\nHz:%u\t%u", i*freq ,(uint32_t)cabs(x[i])); 
+			warpPrint("\nHz:%u\t%u", i*(freq/n) ,(uint32_t)cabs(x[i])); 
 		}
 	}
 	j++;
