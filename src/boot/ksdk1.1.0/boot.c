@@ -63,7 +63,7 @@
 #include "FFT.h"
 #include "PWM.h"
 #include "complex.h"
-
+#include "string.h"
 
 volatile bool						gWarpBooted				= false;
 volatile WarpModeMask					gWarpMode				= kWarpModeDisableAdcOnSleep;
@@ -76,7 +76,7 @@ static void						dumpProcessorState(void);
 int freq = 0;
 
 void fftAndAudio(int * x, uint8_t N);
-void printFFT(int complex * x, int n);
+void printFFT(cNumber * x, int n);
 
 /*
  *	Derived from KSDK power_manager_demo.c BEGIN>>>
@@ -122,7 +122,7 @@ clockManagerCallbackRoutine(clock_notify_struct_t *  notify, void *  callbackDat
 // -----  ADC interrupt routine - should be placed in ADC.c 
 volatile bool adcBufferRdyFlag = 0;
 volatile uint16_t adcRawValue = 0;
-#define NPOINT 64
+#define NPOINT 32
 volatile const uint8_t nPoint = NPOINT;
 volatile uint8_t sampleIdx = 0;
 volatile int sampleBuffer[NPOINT];

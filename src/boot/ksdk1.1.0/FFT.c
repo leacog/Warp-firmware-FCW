@@ -1,5 +1,6 @@
 #include "FFT.h"
 #include "complex.h"
+#include "string.h"
 #define PRE_MULT 1000
 
 // static int complex tf64[32] = {  //Static ensures array is not stored in RAM
@@ -137,8 +138,8 @@ void FFTN(cNumber * x, uint8_t n){
     
     int x_temp_2_im = (int)(x[i+n/2].imag) * (int)(tf64[i*(64/n)].real) + (int)(x[i+n/2].real) * (int)(tf64[i*(64/n)].imag); 
     int x_temp_2_re = (int)(x[i+n/2].real) * (int)(tf64[i*(64/n)].real) - (int)(x[i+n/2].imag) * (int)(tf64[i*(64/n)].imag);
-    int x_temp_2_im *= 2;    //Because of the sign-bit, only shift by 15 bits, so need to multiply by 2 again.
-    int x_temp_2_re *= 2;    
+    x_temp_2_im *= 2;    //Because of the sign-bit, only shift by 15 bits, so need to multiply by 2 again.
+    x_temp_2_re *= 2;    
 
     int x_temp_i_im = x_temp_1_im + x_temp_2_im;
     int x_temp_i_re = x_temp_1_re + x_temp_2_re;
