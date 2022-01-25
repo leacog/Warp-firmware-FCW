@@ -629,23 +629,24 @@ main(void)
 
 void fftAndAudio(int * x, uint8_t N) //Seperated out just so stack memory is cleared, but should be better ways to do this
 {
-	int complex fftBuffer[N];
+	cNumber fftBuffer[N];
 	for(int i = 0; i<N; i++){
-		fftBuffer[i] = x[i] + 0*I;
+		fftBuffer[i].real = (int16_t) x[i];
+		fftBuffer[i].imag = (int16_t) 0;
 		//warpPrint("\n%u",sampleBuffer[i]);
 	}
 	FFT(&fftBuffer[0], N);
-	//printFFT(&fftBuffer[0], N);
+	printFFT(&fftBuffer[0], N);
 	uint16_t RGBvalues [3];
 	octaves(&fftBuffer[0], &RGBvalues[0], (uint8_t)N);
 	SetTrebbleRGB(&RGBvalues[0]);     //Turn on new values for leds
 }
 
-void printFFT(int complex * x, int n){
+void printFFT(cNumber * x, int n){
 	static int j = 0;
 	if(j%100 == 0){
 		for(int i=0; i < n/2; i++){
-			warpPrint("\nHz:%u\t%u", i*(freq/n) ,(uint32_t)cabs(x[i])); 
+			warpPrint("\nHz:%u\t%u", i*(freq/n) ,(uint32_t)( x[i].real*x[i].real + x[i].imag * x[i].imag)); 
 		}
 	}
 	j++;
