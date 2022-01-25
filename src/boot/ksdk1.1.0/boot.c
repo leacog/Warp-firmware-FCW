@@ -120,12 +120,23 @@ clockManagerCallbackRoutine(clock_notify_struct_t *  notify, void *  callbackDat
 
 
 // -----  ADC interrupt routine - should be placed in ADC.c 
-volatile bool adcRdyFlag = 0;
+volatile bool adcBufferRdyFlag = 0;
 volatile uint16_t adcRawValue = 0;
+volatile const uint8_t nPoint = 64;
+volatile uint8_t sampleIdx = 0;
+volatile int sampleBuffer[nPoint];
+
 void ADC0_IRQHandler(void)
 {
-	adcRdyFlag = true;
-	adcRawValue = ADC16_DRV_GetConvValueRAW(0, 0);
+	if(sampleIdx == nPoint || adcBufferRdyFlag){
+		adcBufferRdyFlag = true;
+		sampleIdx = 0;
+	} else {
+		adcRawValue = ADC16_DRV_GetConvValueRAW(0, 0);
+		int newSample = ADC16_DRV_ConvRAWData(adcRawValue, false, kAdcResolutionBitOfSingleEndAs12);
+		sampleBuffer[sampleIdx] = newSample - 2048;
+		sampleIdx++;
+	}
 }
 
 /*
@@ -587,41 +598,29 @@ main(void)
 	uint32_t ADC_time = OSA_TimeGetMsec();
 	int loopCount = 0;
 	while(OSA_TimeGetMsec() - ADC_time < 1000){
-		if(adcRdyFlag){
-			loopCount++;
-			adcRdyFlag = false;
+		if(adcBufferRdyFlag){
+			loopCount += nPoint;
+			adcBufferRdyFlag = false;
 		}
 	}
 	freq = loopCount;
 	warpPrint("\nADC frequency: %u\n", (uint32_t)(freq));
 
 	// ----- Init FFT -----
-	const uint8_t nPoint = 64;
-	uint8_t sampleIdx = 0;
-	uint8_t slowSampleIdx = 0;
-	uint8_t slowSampleDivider = 4;
-	int sampleBuffer[nPoint];
-       	int slowSampleBuffer[nPoint];	
-	
+	int fftBuffer[nPoint];
 	while (1)
 	{
-		if(adcRdyFlag){
-			int newSample = ADC16_DRV_ConvRAWData(adcRawValue, false, kAdcResolutionBitOfSingleEndAs12);
-			sampleBuffer[sampleIdx] = newSample - 2048;
-			adcRdyFlag = false;
-			sampleIdx++;
-		}
-		if(sampleIdx >= nPoint){
+		if(adcBufferRdyFlag){
+			memcpy(&fftBuffer[0], &sampleBuffer[0], nPoint*4);
+			adcBufferRdyFlag = false;
 			uint32_t startTime, stopTime;
 			startTime =OSA_TimeGetMsec();
 			//applyWindow32(&sampleBuffer[0]);
-			bitReverse(&sampleBuffer[0], nPoint);    //in-place bit reverse
-			fftAndAudio(&sampleBuffer[0], nPoint);		
+			bitReverse(&fftBuffer[0], nPoint);    //in-place bit reverse
+			fftAndAudio(&fftBuffer[0], nPoint);		
 			sampleIdx = 0;
 			stopTime = OSA_TimeGetMsec();
-			
 			//warpPrint("\nFFT-TIME: %u", (uint32_t)((stopTime-startTime)));
-			
 		} 
 	}	
 	return 0;
