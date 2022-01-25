@@ -122,9 +122,10 @@ clockManagerCallbackRoutine(clock_notify_struct_t *  notify, void *  callbackDat
 // -----  ADC interrupt routine - should be placed in ADC.c 
 volatile bool adcBufferRdyFlag = 0;
 volatile uint16_t adcRawValue = 0;
-volatile const uint8_t nPoint = 64;
+#define NPOINT 64
+volatile const uint8_t nPoint = NPOINT;
 volatile uint8_t sampleIdx = 0;
-volatile int sampleBuffer[nPoint];
+volatile int sampleBuffer[NPOINT];
 
 void ADC0_IRQHandler(void)
 {
@@ -607,7 +608,7 @@ main(void)
 	warpPrint("\nADC frequency: %u\n", (uint32_t)(freq));
 
 	// ----- Init FFT -----
-	int fftBuffer[nPoint];
+	int fftBuffer[NPOINT];
 	while (1)
 	{
 		if(adcBufferRdyFlag){
