@@ -75,7 +75,7 @@ static void						lowPowerPinStates(void);
 static void						dumpProcessorState(void);
 int freq = 0;
 
-void fftAndAudio(int * x, uint8_t N);
+void fftAndAudio(uint16_t * x, uint8_t N);
 void printFFT(int complex * x, int n);
 
 /*
@@ -120,24 +120,20 @@ clockManagerCallbackRoutine(clock_notify_struct_t *  notify, void *  callbackDat
 
 
 // -----  ADC interrupt routine - should be placed in ADC.c 
-volatile bool adcBufferRdyFlag = 0;
 volatile uint16_t adcRawValue = 0;
+volatile bool adcBufferComplete = false;
 #define NPOINT 64
 volatile const uint8_t nPoint = NPOINT;
 volatile uint8_t sampleIdx = 0;
-volatile int sampleBuffer[NPOINT];
+volatile uint16_t sampleBuffer[NPOINT];
 
 void ADC0_IRQHandler(void)
 {
-	if(sampleIdx == nPoint || adcBufferRdyFlag){
-		adcBufferRdyFlag = true;
-		sampleIdx = 0;
-	} else {
-		adcRawValue = ADC16_DRV_GetConvValueRAW(0, 0);
-		int newSample = ADC16_DRV_ConvRAWData(adcRawValue, false, kAdcResolutionBitOfSingleEndAs12);
-		sampleBuffer[sampleIdx] = newSample - 2048;
-		sampleIdx++;
-	}
+	sampleBuffer[sampleIdx] = ADC16_DRV_GetConvValueRAW(0, 0);
+	sampleIdx++;
+	if(sampleIdx == nPoint) {
+		ADC16_pause(); //Once adc is paused, the IRQ will not fire untill ADC is started again in main loop
+	} 
 }
 
 /*
@@ -590,36 +586,30 @@ main(void)
 	PWM_SetDuty(pwm_G, 3024);
 
 	// ----- Init ADC -------
-	uint32_t instance = 0;
-	uint32_t chnGroup = 0;
-	uint8_t  chn      = 2u; //Sets ADC channel up to. PTA9 = 2, PB12 = 0, PT0 = 15
-	//PORT_HAL_SetMuxMode(PORTA_BASE, 12u,kPortMuxAsGpio); // Set PTA12 for ADC
-	ADC16_init_continuous(instance, chnGroup, chn);
-	warpPrint("\n Set up ADC");
+	ADC16_start();
+	warpPrint("\n Started ADC");
 	uint32_t ADC_time = OSA_TimeGetMsec();
 	int loopCount = 0;
 	while(OSA_TimeGetMsec() - ADC_time < 1000){
-		if(adcBufferRdyFlag){
-			loopCount += nPoint;
-			adcBufferRdyFlag = false;
+		if(sampleIdx == nPoint){
+			loopCount += (int)nPoint;
+			sampleIdx = 0;
+			ADC16_start();
 		}
 	}
+	ADC16_pause();
 	freq = loopCount;
 	warpPrint("\nADC frequency: %u\n", (uint32_t)(freq));
-
-	// ----- Init FFT -----
-	int fftBuffer[NPOINT];
+	sampleIdx = 0;
+	ADC16_start();
 	while (1)
 	{
-		if(adcBufferRdyFlag){
-			memcpy(&fftBuffer[0], &sampleBuffer[0], nPoint*4);
-			adcBufferRdyFlag = false;
+		if(sampleIdx == nPoint){
 			uint32_t startTime, stopTime;
-			startTime =OSA_TimeGetMsec();
+			startTime = OSA_TimeGetMsec();
 			//applyWindow32(&sampleBuffer[0]);
-			bitReverse(&fftBuffer[0], nPoint);    //in-place bit reverse
-			fftAndAudio(&fftBuffer[0], nPoint);		
-			sampleIdx = 0;
+			bitReverse(&sampleBuffer[0], nPoint);    //in-place bit reverse
+			fftAndAudio(&sampleBuffer[0], nPoint);		
 			stopTime = OSA_TimeGetMsec();
 			//warpPrint("\nFFT-TIME: %u", (uint32_t)((stopTime-startTime)));
 		} 
@@ -627,15 +617,18 @@ main(void)
 	return 0;
 }
 
-void fftAndAudio(int * x, uint8_t N) //Seperated out just so stack memory is cleared, but should be better ways to do this
+void fftAndAudio(uint16_t * x, uint8_t N) //Seperated out just so stack memory is cleared, but should be better ways to do this
 {
 	int complex fftBuffer[N];
 	for(int i = 0; i<N; i++){
-		fftBuffer[i] = x[i] + 0*I;
+		int newSample = ADC16_DRV_ConvRAWData(x[i], false, kAdcResolutionBitOfSingleEndAs12);
+		fftBuffer[i] = newSample + 0*I;
 		//warpPrint("\n%u",sampleBuffer[i]);
 	}
+	sampleIdx = 0;
+	ADC16_start();
 	FFT(&fftBuffer[0], N);
-	//printFFT(&fftBuffer[0], N);
+	printFFT(&fftBuffer[0], N);
 	uint16_t RGBvalues [3];
 	octaves(&fftBuffer[0], &RGBvalues[0], (uint8_t)N);
 	SetTrebbleRGB(&RGBvalues[0]);     //Turn on new values for leds

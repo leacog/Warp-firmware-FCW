@@ -47,7 +47,7 @@ void SetTrebbleRGB(uint16_t * RGBvals){
 	PWM_SetDuty(pwm_R, RGBvals[0]);
 	PWM_SetDuty(pwm_G, RGBvals[1]);
 	PWM_SetDuty(pwm_B, RGBvals[2]);
-	warpPrint("\nR:\%u\tG:\t%u\tB:\t%u", (int)RGBvals[0], (int)RGBvals[1], (int)RGBvals[2]);
+	//warpPrint("\nR:\%u\tG:\t%u\tB:\t%u", (int)RGBvals[0], (int)RGBvals[1], (int)RGBvals[2]);
 }
 
 void SetBaseRGB(uint16_t * RGBvals){
