@@ -86,8 +86,8 @@ void applyWindow32(int * samples){
   }
 }
 
-void bitReverse(int * x, uint8_t N){
-  int x_temp[N];
+void bitReverse(uint16_t * x, uint8_t N){
+  uint16_t x_temp[N];
   for(uint8_t i =0; i < N; i++){
     x_temp[i] = x[BitReverseArray[i*(64/N)]]; 
   }
