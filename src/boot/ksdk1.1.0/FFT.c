@@ -1,42 +1,6 @@
 #include "FFT.h"
 #include "complex.h"
 #include "string.h"
-#define PRE_MULT 1000
-
-// static int complex tf64[32] = {  //Static ensures array is not stored in RAM
-// 1000     + -0    *I,
-// 995      + -98   *I,
-// 981      + -195  *I,
-// 957      + -290  *I,
-// 924      + -383  *I,
-// 882      + -471  *I,
-// 831      + -556  *I,
-// 773      + -634  *I,
-// 707      + -707  *I,
-// 634      + -773  *I,
-// 556      + -831  *I,
-// 471      + -882  *I,
-// 383      + -924  *I,
-// 290      + -957  *I,
-// 195      + -981  *I,
-// 98       + -995  *I,
-// 0        + -1000 *I,
-// -98      + -995  *I,
-// -195     + -981  *I,
-// -290     + -957  *I,
-// -383     + -924  *I,
-// -471     + -882  *I,
-// -556     + -831  *I,
-// -634     + -773  *I,
-// -707     + -707  *I,
-// -773     + -634  *I,
-// -831     + -556  *I,
-// -882     + -471  *I,
-// -924     + -383  *I,
-// -957     + -290  *I,
-// -981     + -195  *I,
-// -995     + -98   *I
-// };
 
 static cNumber tf64[32] = {
 {.real = 32767   , .imag =-0},
@@ -74,7 +38,7 @@ static cNumber tf64[32] = {
 };
 
 static int BitReverseArray[64] = {0,32,16,48,8,40,24,56,4,36,20,52,12,44,28,60,2,34,18,50,10,42,26,58,6,38,22,54,14,46,30,62,1,33,17,49,9,41,25,57,5,37,21,53,13,45,29,61,3,35,19,51,11,43,27,59,7,39,23,55,15,47,31,63};
-static int hanning32[32] = {0,83,331,734,1273,1929,2673,3475,4303,5122,5899,6603,7203,7677,8004,8170,8170,8004,7677,7203,6603,5899,5122,4303,3475,2673,1929,1273,734,331,83,0};
+//static int hanning32[32] = {0,83,331,734,1273,1929,2673,3475,4303,5122,5899,6603,7203,7677,8004,8170,8170,8004,7677,7203,6603,5899,5122,4303,3475,2673,1929,1273,734,331,83,0};
 
 void FFT(cNumber * x, uint8_t N){
   FFTN(&x[0], N);
@@ -82,11 +46,11 @@ void FFT(cNumber * x, uint8_t N){
 
 void applyWindow32(int * samples){
   for(int i = 0; i < 32; i++){
-    samples[i] = (samples[i] * hanning32[i]) / 8192; //Using 2^13 = 8192 for hanning factors -> could do shift if using unsigned or some trickery if faster is needed
+    //samples[i] = (samples[i] * hanning32[i]) / 8192; //Using 2^13 = 8192 for hanning factors -> could do shift if using unsigned or some trickery if faster is needed
   }
 }
 
-void bitReverse(uint16_t * x, uint8_t N){
+void bitReverse(volatile uint16_t * x, uint8_t N){
   uint16_t x_temp[N];
   for(uint8_t i =0; i < N; i++){
     x_temp[i] = x[BitReverseArray[i*(64/N)]]; 
@@ -97,9 +61,25 @@ void bitReverse(uint16_t * x, uint8_t N){
 }
 
 void octaves(cNumber * x, uint16_t * output, uint8_t N){
-/* General solution is difficult to tweek but keep here for reference  
+
+  for(uint8_t i = 1; i<=2; i++)  {
+	 int complex cTemp = x[i].real + x[i].imag * I; 
+	 output[0] += (uint16_t)cabs(cTemp);
+  }
+
+  for(uint8_t i = 7; i<=10; i++)  {
+	 int complex cTemp = x[i].real + x[i].imag * I; 
+	 output[1] += (uint16_t)cabs(cTemp); 
+  }
+  
+  for(uint8_t i = 16; i<=28; i++){
+	 int complex cTemp = x[i].real + x[i].imag * I; 
+	 output[2] += (uint16_t)cabs(cTemp); 
+  }
+
+/* General solution is difficult to tweek and not super readable but keept here for reference  
   uint8_t log2N = 0;
-  //Can't get octaves lower than for N=8 -> now maps to 8->0, 16->1 32->2 etc.
+  //Can't get octaves lower than for N=8 -> N now maps to 8->0, 16->1 32->2 etc.
   N >>= 4;
   while(N > 0){
 	  log2N++;
@@ -116,12 +96,6 @@ void octaves(cNumber * x, uint16_t * output, uint8_t N){
   	output[i] = (output[i] >> log2N) >> i;
   } 
 */
-  for(uint8_t i = 1; i<=2; i++)  { output[0] += x[i].real * x[i].real + x[i].imag * x[i].imag; }
-  output[0] >>= 1;
-  for(uint8_t i = 5; i<=8; i++)  { output[1] += x[i].real * x[i].real + x[i].imag * x[i].imag; }
-  output[1] >>= 1;
-  for(uint8_t i = 16; i<=28; i++){ output[2] += x[i].real * x[i].real + x[i].imag * x[i].imag; }
-  output[2] >>= 2;
 }
 
 void FFTN(cNumber * x, uint8_t n){
@@ -131,25 +105,41 @@ void FFTN(cNumber * x, uint8_t n){
   }
 
   for(uint8_t i=0; i < (n/2); i++){
-    int x_temp_1_im = 0;
-    int x_temp_1_re = 0;
-    memcpy(&x_temp_1_im, &(x[i].imag), 4); //Copies x[i] to top 16 bits of x_temp_1
-    memcpy(&x_temp_1_re, &(x[i].real), 4); 
     
-    int x_temp_2_im = (int)(x[i+n/2].imag) * (int)(tf64[i*(64/n)].real) + (int)(x[i+n/2].real) * (int)(tf64[i*(64/n)].imag); 
-    int x_temp_2_re = (int)(x[i+n/2].real) * (int)(tf64[i*(64/n)].real) - (int)(x[i+n/2].imag) * (int)(tf64[i*(64/n)].imag);
-    x_temp_2_im *= 2;    //Because of the sign-bit, only shift by 15 bits, so need to multiply by 2 again.
-    x_temp_2_re *= 2;    
+    int x_temp_1_im, x_temp_1_re;
+    int x_temp_2_im, x_temp_2_re;
+    
+    x_temp_1_im =  (int)x[i].imag; 
+    x_temp_1_re =  (int)x[i].real; 
+    
+    x_temp_2_im =  (int)x[i+n/2].imag;
+    x_temp_2_re =  (int)x[i+n/2].real;
 
-    int x_temp_i_im = x_temp_1_im + x_temp_2_im;
-    int x_temp_i_re = x_temp_1_re + x_temp_2_re;
-    int x_temp_in2_im = x_temp_1_im - x_temp_2_im;
-    int x_temp_in2_re = x_temp_1_re - x_temp_2_re;
+    x_temp_1_im *= 32768;  //Compiles optimizes this operation to a shift, known from tests
+    x_temp_1_re *= 32768;
+	
+    int tf_im = (int)tf64[i*(64/n)].imag;  //Casting takes some time but avoid us storing twiddle factors as 32 bit numbers - halving required memory
+    int tf_re =	(int)tf64[i*(64/n)].real;
+	
+    int xtf_temp_2_im = x_temp_2_im * tf_re	+	x_temp_2_re * tf_im;  //tf factors contain a factor of 2^15 
+    int xtf_temp_2_re = x_temp_2_re * tf_re	-	x_temp_2_im * tf_im; 
+    
+    int x_temp_i_im = x_temp_1_im + xtf_temp_2_im;
+    int x_temp_i_re = x_temp_1_re + xtf_temp_2_re;
+    int x_temp_in2_im = x_temp_1_im - xtf_temp_2_im;
+    int x_temp_in2_re = x_temp_1_re - xtf_temp_2_re;
 
-    memcpy(&(x[i].imag), &x_temp_i_im, 4);              //Copies top 16 bits, effectivly dividing by 2^16     
-    memcpy(&(x[i].real), &x_temp_i_re, 4);
-    memcpy(&(x[i + n/2].imag), &x_temp_in2_im, 4);
-    memcpy(&(x[i + n/2].real), &x_temp_in2_re, 4);
+    x[i].imag 		= (int16_t)(x_temp_i_im 	/ 32768);              //Dividing by 2^15 to renormalize     
+    x[i].real 		= (int16_t)(x_temp_i_re 	/ 32768);
+    x[i+(n/2)].imag 	= (int16_t)(x_temp_in2_im 	/ 32768);
+    x[i+(n/2)].real 	= (int16_t)(x_temp_in2_re 	/ 32768);
+  
+    if(n==32 || n==16){
+    	x[i].imag 		/= 2;              //With pm 2024 as largest possible input, we could reach 32768 by stage 16, so need to normalize down to fit in 16 bits
+    	x[i].real 		/= 2;
+    	x[i+(n/2)].imag 	/= 2;
+    	x[i+(n/2)].real 	/= 2;
+    }
   }
 }
 

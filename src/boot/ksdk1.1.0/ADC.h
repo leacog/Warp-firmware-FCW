@@ -1,7 +1,7 @@
 #include "fsl_adc16_driver.h"
 
-void ADC_start(void);
-void ADC_pause(void);
+void ADC16_start(void);
+void ADC16_pause(void);
 
 #define ADC_instance 0
 #define ADC_chnGroup 0

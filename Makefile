@@ -23,6 +23,7 @@ warp:
 	cp src/boot/ksdk1.1.0/ADC.*					build/ksdk1.1/work/demos/Warp/src/
 	cp src/boot/ksdk1.1.0/FFT.*					build/ksdk1.1/work/demos/Warp/src/
 	cp src/boot/ksdk1.1.0/PWM.*					build/ksdk1.1/work/demos/Warp/src/
+	cp src/boot/ksdk1.1.0/speedTest.*				build/ksdk1.1/work/demos/Warp/src/
 	cd build/ksdk1.1/work/lib/ksdk_platform_lib/armgcc/KL03Z4 && ./clean.sh; ./build_release.sh
 	cd build/ksdk1.1/work/demos/Warp/armgcc/Warp && ./clean.sh; ./build_release.sh
 	@echo "\n\nNow, run\n\n\tmake load-warp\n\n"

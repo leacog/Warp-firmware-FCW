@@ -75,8 +75,9 @@ static void						lowPowerPinStates(void);
 static void						dumpProcessorState(void);
 int freq = 0;
 
-void fftAndAudio(int * x, uint8_t N);
+void fftAndAudio(volatile uint16_t * x, uint8_t N);
 void printFFT(cNumber * x, int n);
+void numToColumn(uint32_t size);
 
 /*
  *	Derived from KSDK power_manager_demo.c BEGIN>>>
@@ -573,6 +574,8 @@ main(void)
 	}
 
 	dumpProcessorState();
+	
+	#include "speedTest.h" //Bad practice way of importing the tests, should be a seperate source file.
 
 	// ----- Init PWM -------
 	
@@ -605,7 +608,6 @@ main(void)
 	while (1)
 	{
 		if(sampleIdx == nPoint){
-			uint32_t startTime, stopTime;
 			startTime = OSA_TimeGetMsec();
 			//applyWindow32(&sampleBuffer[0]);
 			bitReverse(&sampleBuffer[0], nPoint);    //in-place bit reverse
@@ -617,29 +619,58 @@ main(void)
 	return 0;
 }
 
-void fftAndAudio(uint16_t * x, uint8_t N) //Seperated out just so stack memory is cleared, but should be better ways to do this
+void fftAndAudio(volatile uint16_t * x, uint8_t N) //Seperated out just so stack memory is cleared, but should be better ways to do this
 {
 	cNumber fftBuffer[N];
 	for(int i = 0; i<N; i++){
 		fftBuffer[i].real = (int16_t) x[i];
 		fftBuffer[i].imag = (int16_t) 0;
-		//warpPrint("\n%u",sampleBuffer[i]);
 	}
 	sampleIdx = 0;
 	ADC16_start();
+	//uint32_t startTimee;
+	//startTimee = OSA_TimeGetMsec();
 	FFT(&fftBuffer[0], N);
-	printFFT(&fftBuffer[0], N);
-	uint16_t RGBvalues [3];
+	//startTimee = OSA_TimeGetMsec() - startTimee;
+	//warpPrint("FFT time: %u", startTimee);
+	//printFFT(&fftBuffer[0], N);
+	uint16_t RGBvalues [3] = {};
 	octaves(&fftBuffer[0], &RGBvalues[0], (uint8_t)N);
 	SetTrebbleRGB(&RGBvalues[0]);     //Turn on new values for leds
 }
 
+
 void printFFT(cNumber * x, int n){
 	static int j = 0;
 	if(j%100 == 0){
-		for(int i=0; i < n/2; i++){
-			warpPrint("\nHz:%u\t%u", i*(freq/n) ,(uint32_t)( x[i].real*x[i].real + x[i].imag * x[i].imag)); 
+		warpSetLowPowerMode(kWarpPowerModeVLPR, 0 /* Sleep Seconds */); //Reduce clock speed to make print properly
+		for(int i=0; i < n/2 ; i++){
+			//warpPrint("\nHz:%u\t%u", i*(freq/n) ,(uint32_t)( x[i].real*x[i].real + x[i].imag * x[i].imag)); 
+			//warpPrint("\n%d-\t Re:\t%d\tIm:\t%d", i , x[i].real, x[i].imag); 
+			warpPrint("\nHz:%u\t", i*(freq/n));
+			int complex cTemp = x[i].real + x[i].imag * I;
+			numToColumn((uint32_t)cabs(cTemp));
 		}
+		warpSetLowPowerMode(kWarpPowerModeRUN, 0 /* Sleep Seconds */); //Reduce clock speed to make print properly
 	}
 	j++;
+}
+
+#define DOTSIZE 20
+#define COLSIZE 50
+void numToColumn(uint32_t size){
+	char column[COLSIZE];
+	int i = 0;
+	if(size > DOTSIZE){
+		while (size > DOTSIZE & i < COLSIZE){
+			column[i] = '#';
+			i++;
+			size -= DOTSIZE;
+		}
+	}
+	while(i < COLSIZE){
+		column[i] = '-';
+		i++;
+	}
+	warpPrint(column);
 }
