@@ -17,7 +17,31 @@
 	}
 	stopTime = OSA_TimeGetMsec();
 	warpPrint("\nLShift 15: %u", stopTime-startTime-loopTime);
+
+	double tes = 1000;
+	startTime = OSA_TimeGetMsec();
+	for(volatile int i = 0; i < 100; i++){
+		testShort = (int32_t) (tes*sin(i));
+	}
+	stopTime = OSA_TimeGetMsec();
+	warpPrint("\nSin(i): %u", stopTime-startTime-loopTime);
 	
+	static volatile int16_t tftest [3] = {1,2,3};
+	startTime = OSA_TimeGetMsec();
+	for(volatile int i = 0; i < 100000; i++){
+		testShort = (int32_t) tftest[2];
+	}
+	stopTime = OSA_TimeGetMsec();
+	warpPrint("\nROM: %u", stopTime-startTime-loopTime);
+
+	volatile int16_t tf2test [3] = {1,2,3};
+	startTime = OSA_TimeGetMsec();
+	for(volatile int i = 0; i < 100000; i++){
+		testShort = (int32_t) tf2test[2];
+	}
+	stopTime = OSA_TimeGetMsec();
+	warpPrint("\nRAM: %u", stopTime-startTime-loopTime);
+
 	startTime = OSA_TimeGetMsec();
 	for(volatile int i = 0; i < 10000; i++){
 		memcpy(&testShort, &testInt, 4);

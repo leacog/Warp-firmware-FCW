@@ -64,6 +64,7 @@
 #include "PWM.h"
 #include "complex.h"
 #include "string.h"
+#include "math.h"
 
 volatile bool						gWarpBooted				= false;
 volatile WarpModeMask					gWarpMode				= kWarpModeDisableAdcOnSleep;
@@ -123,7 +124,7 @@ clockManagerCallbackRoutine(clock_notify_struct_t *  notify, void *  callbackDat
 // -----  ADC interrupt routine - should be placed in ADC.c 
 volatile uint16_t adcRawValue = 0;
 volatile bool adcBufferComplete = false;
-#define NPOINT 64
+#define NPOINT 128
 volatile const uint8_t nPoint = NPOINT;
 volatile uint8_t sampleIdx = 0;
 volatile uint16_t sampleBuffer[NPOINT];
@@ -575,7 +576,7 @@ main(void)
 
 	dumpProcessorState();
 	
-	#include "speedTest.h" //Bad practice way of importing the tests, should be a seperate source file.
+	//	#include "speedTest.h" //Bad practice way of importing the tests, should be a seperate source file.
 
 	// ----- Init PWM -------
 	
@@ -608,12 +609,9 @@ main(void)
 	while (1)
 	{
 		if(sampleIdx == nPoint){
-			startTime = OSA_TimeGetMsec();
 			//applyWindow32(&sampleBuffer[0]);
 			bitReverse(&sampleBuffer[0], nPoint);    //in-place bit reverse
 			fftAndAudio(&sampleBuffer[0], nPoint);		
-			stopTime = OSA_TimeGetMsec();
-			//warpPrint("\nFFT-TIME: %u", (uint32_t)((stopTime-startTime)));
 		} 
 	}	
 	return 0;
@@ -633,7 +631,7 @@ void fftAndAudio(volatile uint16_t * x, uint8_t N) //Seperated out just so stack
 	FFT(&fftBuffer[0], N);
 	//startTimee = OSA_TimeGetMsec() - startTimee;
 	//warpPrint("FFT time: %u", startTimee);
-	//printFFT(&fftBuffer[0], N);
+	printFFT(&fftBuffer[0], N);
 	uint16_t RGBvalues [3] = {};
 	octaves(&fftBuffer[0], &RGBvalues[0], (uint8_t)N);
 	SetTrebbleRGB(&RGBvalues[0]);     //Turn on new values for leds
@@ -642,16 +640,18 @@ void fftAndAudio(volatile uint16_t * x, uint8_t N) //Seperated out just so stack
 
 void printFFT(cNumber * x, int n){
 	static int j = 0;
-	if(j%100 == 0){
-		warpSetLowPowerMode(kWarpPowerModeVLPR, 0 /* Sleep Seconds */); //Reduce clock speed to make print properly
-		for(int i=0; i < n/2 ; i++){
+	if(j%100 == 0){ //Only print every 100th fft to not saturate terminal
+		//warpSetLowPowerMode(kWarpPowerModeVLPR, 0 /* Sleep Seconds */); //Reduce clock speed to make print properly
+		uint32_t powerSum = 0;
+		for(int i=1; i < n/2 ; i++){
 			//warpPrint("\nHz:%u\t%u", i*(freq/n) ,(uint32_t)( x[i].real*x[i].real + x[i].imag * x[i].imag)); 
 			//warpPrint("\n%d-\t Re:\t%d\tIm:\t%d", i , x[i].real, x[i].imag); 
-			warpPrint("\nHz:%u\t", i*(freq/n));
+			//warpPrint("\nHz:%u\t", i*(freq/n));
 			int complex cTemp = x[i].real + x[i].imag * I;
-			numToColumn((uint32_t)cabs(cTemp));
+			powerSum += (uint32_t)cabs(cTemp);
+			//numToColumn((uint32_t)cabs(cTemp));
 		}
-		warpSetLowPowerMode(kWarpPowerModeRUN, 0 /* Sleep Seconds */); //Reduce clock speed to make print properly
+		warpPrint("\rtotalPower: %u\t...", powerSum);
 	}
 	j++;
 }
