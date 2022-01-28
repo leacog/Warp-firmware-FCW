@@ -30,7 +30,7 @@ KiCad PCB project files are included in the repo. Note that they are designed fo
 
 <p align="center">
   <img src="images/4B25_LitShield.jpg" width="55%">
-  <a href="https://github.com/leacog/Warp-firmware-FCW/images/schematic.pdf">
+  <a href="images/schematic.pdf">
   <img src="images/schematic.JPG" width="42%" alt="Schematic">
   </a>
 </p>
