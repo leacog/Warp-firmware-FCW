@@ -1,0 +1,480 @@
+EESchema Schematic File Version 4
+EELAYER 30 0
+EELAYER END
+$Descr User 9843 9055
+encoding utf-8
+Sheet 1 1
+Title ""
+Date ""
+Rev ""
+Comp ""
+Comment1 ""
+Comment2 ""
+Comment3 ""
+Comment4 ""
+$EndDescr
+$Comp
+L 01_soundBoard:AG_ElectretMic U2
+U 1 1 61DBF0B4
+P 1850 2300
+F 0 "U2" V 2315 2367 50  0000 C CNN
+F 1 "AG_ElectretMic" V 2224 2367 50  0000 C CNN
+F 2 "Connector_PinSocket_2.54mm:PinSocket_1x03_P2.54mm_Vertical" H 1800 2050 50  0001 C CNN
+F 3 "" H 1800 2050 50  0001 C CNN
+	1    1850 2300
+	0    -1   -1   0   
+$EndComp
+$Comp
+L 01_soundBoard:FRDM-KL03Z U1
+U 1 1 61DBF33D
+P 3800 2750
+F 0 "U1" H 4000 1585 50  0000 C CNN
+F 1 "FRDM-KL03Z" H 4000 1676 50  0000 C CNN
+F 2 "Module:Arduino_UNO_R3" H 4450 3850 50  0001 C CNN
+F 3 "" H 4450 3850 50  0001 C CNN
+	1    3800 2750
+	-1   0    0    1   
+$EndComp
+$Comp
+L 01_soundBoard:RealAG_ElectretMic U3
+U 1 1 61DBFE7C
+P 2000 3350
+F 0 "U3" V 2565 3567 50  0000 C CNN
+F 1 "RealAG_ElectretMic" V 2474 3567 50  0000 C CNN
+F 2 "Connector_PinHeader_2.54mm:PinHeader_1x05_P2.54mm_Vertical" H 2000 3350 50  0001 C CNN
+F 3 "" H 2000 3350 50  0001 C CNN
+	1    2000 3350
+	0    -1   -1   0   
+$EndComp
+$Comp
+L Transistor_BJT:BCP56 Q3
+U 1 1 61DC0A5E
+P 3950 6000
+F 0 "Q3" H 4141 5954 50  0000 L CNN
+F 1 "BCP56" H 4141 6045 50  0000 L CNN
+F 2 "Package_TO_SOT_SMD:SOT-223-3_TabPin2" H 4150 5925 50  0001 L CIN
+F 3 "http://cache.nxp.com/documents/data_sheet/BCP56_BCX56_BC56PA.pdf?pspll=1" H 3950 6000 50  0001 L CNN
+	1    3950 6000
+	-1   0    0    1   
+$EndComp
+$Comp
+L Device:R R3
+U 1 1 61DC25B4
+P 4250 5750
+F 0 "R3" H 4320 5796 50  0000 L CNN
+F 1 "670" H 4320 5705 50  0000 L CNN
+F 2 "Resistor_SMD:R_0805_2012Metric_Pad1.15x1.40mm_HandSolder" V 4180 5750 50  0001 C CNN
+F 3 "~" H 4250 5750 50  0001 C CNN
+	1    4250 5750
+	1    0    0    -1  
+$EndComp
+$Comp
+L Connector:Barrel_Jack_MountingPin J4
+U 1 1 61DC2D05
+P 7400 1950
+F 0 "J4" H 7170 1822 50  0000 R CNN
+F 1 "12_Barrel_Jack" H 7170 1913 50  0000 R CNN
+F 2 "Connector_BarrelJack:BarrelJack_Horizontal" H 7450 1910 50  0001 C CNN
+F 3 "~" H 7450 1910 50  0001 C CNN
+	1    7400 1950
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:GND #PWR0101
+U 1 1 61DC3E27
+P 7700 2050
+F 0 "#PWR0101" H 7700 1800 50  0001 C CNN
+F 1 "GND" V 7705 1922 50  0000 R CNN
+F 2 "" H 7700 2050 50  0001 C CNN
+F 3 "" H 7700 2050 50  0001 C CNN
+	1    7700 2050
+	0    -1   -1   0   
+$EndComp
+$Comp
+L power:+12V #PWR0102
+U 1 1 61DC42AA
+P 7700 1850
+F 0 "#PWR0102" H 7700 1700 50  0001 C CNN
+F 1 "+12V" V 7715 1978 50  0000 L CNN
+F 2 "" H 7700 1850 50  0001 C CNN
+F 3 "" H 7700 1850 50  0001 C CNN
+	1    7700 1850
+	0    1    1    0   
+$EndComp
+$Comp
+L Connector:Conn_01x02_Male J3
+U 1 1 61DC5806
+P 3850 6650
+F 0 "J3" V 4004 6462 50  0000 R CNN
+F 1 "GREEN" V 3913 6462 50  0000 R CNN
+F 2 "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical" H 3850 6650 50  0001 C CNN
+F 3 "~" H 3850 6650 50  0001 C CNN
+	1    3850 6650
+	0    -1   -1   0   
+$EndComp
+Wire Wire Line
+	4250 5900 4250 6000
+Wire Wire Line
+	4250 6000 4150 6000
+Wire Wire Line
+	3850 6200 3850 6450
+Wire Wire Line
+	3950 6450 3950 6300
+Wire Wire Line
+	3950 6300 4050 6300
+$Comp
+L power:+12V #PWR0103
+U 1 1 61DD9394
+P 4050 6300
+F 0 "#PWR0103" H 4050 6150 50  0001 C CNN
+F 1 "+12V" V 4065 6428 50  0000 L CNN
+F 2 "" H 4050 6300 50  0001 C CNN
+F 3 "" H 4050 6300 50  0001 C CNN
+	1    4050 6300
+	0    1    1    0   
+$EndComp
+$Comp
+L power:GND #PWR0104
+U 1 1 61DD9BEE
+P 3850 5800
+F 0 "#PWR0104" H 3850 5550 50  0001 C CNN
+F 1 "GND" H 3855 5627 50  0000 C CNN
+F 2 "" H 3850 5800 50  0001 C CNN
+F 3 "" H 3850 5800 50  0001 C CNN
+	1    3850 5800
+	-1   0    0    1   
+$EndComp
+$Comp
+L Transistor_BJT:BCP56 Q2
+U 1 1 61DDDA49
+P 2850 6000
+F 0 "Q2" H 3041 5954 50  0000 L CNN
+F 1 "BCP56" H 3041 6045 50  0000 L CNN
+F 2 "Package_TO_SOT_SMD:SOT-223-3_TabPin2" H 3050 5925 50  0001 L CIN
+F 3 "http://cache.nxp.com/documents/data_sheet/BCP56_BCX56_BC56PA.pdf?pspll=1" H 2850 6000 50  0001 L CNN
+	1    2850 6000
+	-1   0    0    1   
+$EndComp
+$Comp
+L Device:R R2
+U 1 1 61DDDA4F
+P 3150 5750
+F 0 "R2" H 3220 5796 50  0000 L CNN
+F 1 "670" H 3220 5705 50  0000 L CNN
+F 2 "Resistor_SMD:R_0805_2012Metric_Pad1.15x1.40mm_HandSolder" V 3080 5750 50  0001 C CNN
+F 3 "~" H 3150 5750 50  0001 C CNN
+	1    3150 5750
+	1    0    0    -1  
+$EndComp
+$Comp
+L Connector:Conn_01x02_Male J2
+U 1 1 61DDDA55
+P 2750 6650
+F 0 "J2" V 2904 6462 50  0000 R CNN
+F 1 "BLUE" V 2813 6462 50  0000 R CNN
+F 2 "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical" H 2750 6650 50  0001 C CNN
+F 3 "~" H 2750 6650 50  0001 C CNN
+	1    2750 6650
+	0    -1   -1   0   
+$EndComp
+Wire Wire Line
+	3150 5900 3150 6000
+Wire Wire Line
+	3150 6000 3050 6000
+Wire Wire Line
+	2750 6200 2750 6450
+Wire Wire Line
+	2850 6450 2850 6300
+Wire Wire Line
+	2850 6300 2950 6300
+$Comp
+L power:+12V #PWR0105
+U 1 1 61DDDA60
+P 2950 6300
+F 0 "#PWR0105" H 2950 6150 50  0001 C CNN
+F 1 "+12V" V 2965 6428 50  0000 L CNN
+F 2 "" H 2950 6300 50  0001 C CNN
+F 3 "" H 2950 6300 50  0001 C CNN
+	1    2950 6300
+	0    1    1    0   
+$EndComp
+$Comp
+L power:GND #PWR0106
+U 1 1 61DDDA66
+P 2750 5800
+F 0 "#PWR0106" H 2750 5550 50  0001 C CNN
+F 1 "GND" H 2755 5627 50  0000 C CNN
+F 2 "" H 2750 5800 50  0001 C CNN
+F 3 "" H 2750 5800 50  0001 C CNN
+	1    2750 5800
+	-1   0    0    1   
+$EndComp
+$Comp
+L Transistor_BJT:BCP56 Q1
+U 1 1 61DDF79D
+P 1800 6000
+F 0 "Q1" H 1991 5954 50  0000 L CNN
+F 1 "BCP56" H 1991 6045 50  0000 L CNN
+F 2 "Package_TO_SOT_SMD:SOT-223-3_TabPin2" H 2000 5925 50  0001 L CIN
+F 3 "http://cache.nxp.com/documents/data_sheet/BCP56_BCX56_BC56PA.pdf?pspll=1" H 1800 6000 50  0001 L CNN
+	1    1800 6000
+	-1   0    0    1   
+$EndComp
+$Comp
+L Device:R R1
+U 1 1 61DDF7A3
+P 2100 5750
+F 0 "R1" H 2170 5796 50  0000 L CNN
+F 1 "670" H 2170 5705 50  0000 L CNN
+F 2 "Resistor_SMD:R_0805_2012Metric_Pad1.15x1.40mm_HandSolder" V 2030 5750 50  0001 C CNN
+F 3 "~" H 2100 5750 50  0001 C CNN
+	1    2100 5750
+	1    0    0    -1  
+$EndComp
+$Comp
+L Connector:Conn_01x02_Male J1
+U 1 1 61DDF7A9
+P 1700 6650
+F 0 "J1" V 1854 6462 50  0000 R CNN
+F 1 "RED" V 1763 6462 50  0000 R CNN
+F 2 "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical" H 1700 6650 50  0001 C CNN
+F 3 "~" H 1700 6650 50  0001 C CNN
+	1    1700 6650
+	0    -1   -1   0   
+$EndComp
+Wire Wire Line
+	2100 5900 2100 6000
+Wire Wire Line
+	2100 6000 2000 6000
+Wire Wire Line
+	1700 6200 1700 6450
+Wire Wire Line
+	1800 6450 1800 6300
+Wire Wire Line
+	1800 6300 1900 6300
+$Comp
+L power:+12V #PWR0107
+U 1 1 61DDF7B4
+P 1900 6300
+F 0 "#PWR0107" H 1900 6150 50  0001 C CNN
+F 1 "+12V" V 1915 6428 50  0000 L CNN
+F 2 "" H 1900 6300 50  0001 C CNN
+F 3 "" H 1900 6300 50  0001 C CNN
+	1    1900 6300
+	0    1    1    0   
+$EndComp
+$Comp
+L power:GND #PWR0108
+U 1 1 61DDF7BA
+P 1700 5800
+F 0 "#PWR0108" H 1700 5550 50  0001 C CNN
+F 1 "GND" H 1705 5627 50  0000 C CNN
+F 2 "" H 1700 5800 50  0001 C CNN
+F 3 "" H 1700 5800 50  0001 C CNN
+	1    1700 5800
+	-1   0    0    1   
+$EndComp
+NoConn ~ 7400 2250
+$Comp
+L power:VCC #PWR0109
+U 1 1 61DE27AA
+P 4150 3050
+F 0 "#PWR0109" H 4150 2900 50  0001 C CNN
+F 1 "VCC" V 4167 3178 50  0000 L CNN
+F 2 "" H 4150 3050 50  0001 C CNN
+F 3 "" H 4150 3050 50  0001 C CNN
+	1    4150 3050
+	0    1    1    0   
+$EndComp
+$Comp
+L power:VCC #PWR0110
+U 1 1 61DE3444
+P 2000 3200
+F 0 "#PWR0110" H 2000 3050 50  0001 C CNN
+F 1 "VCC" V 2017 3328 50  0000 L CNN
+F 2 "" H 2000 3200 50  0001 C CNN
+F 3 "" H 2000 3200 50  0001 C CNN
+	1    2000 3200
+	0    1    1    0   
+$EndComp
+$Comp
+L power:VCC #PWR0111
+U 1 1 61DE49A2
+P 2000 2150
+F 0 "#PWR0111" H 2000 2000 50  0001 C CNN
+F 1 "VCC" V 2017 2278 50  0000 L CNN
+F 2 "" H 2000 2150 50  0001 C CNN
+F 3 "" H 2000 2150 50  0001 C CNN
+	1    2000 2150
+	0    1    1    0   
+$EndComp
+$Comp
+L power:GND #PWR0112
+U 1 1 61DE5015
+P 2000 3050
+F 0 "#PWR0112" H 2000 2800 50  0001 C CNN
+F 1 "GND" V 2005 2922 50  0000 R CNN
+F 2 "" H 2000 3050 50  0001 C CNN
+F 3 "" H 2000 3050 50  0001 C CNN
+	1    2000 3050
+	0    -1   -1   0   
+$EndComp
+$Comp
+L power:GND #PWR0113
+U 1 1 61DE5A5E
+P 2000 2300
+F 0 "#PWR0113" H 2000 2050 50  0001 C CNN
+F 1 "GND" V 2005 2172 50  0000 R CNN
+F 2 "" H 2000 2300 50  0001 C CNN
+F 3 "" H 2000 2300 50  0001 C CNN
+	1    2000 2300
+	0    -1   -1   0   
+$EndComp
+$Comp
+L power:GND #PWR0114
+U 1 1 61DE5E43
+P 3050 3450
+F 0 "#PWR0114" H 3050 3200 50  0001 C CNN
+F 1 "GND" V 3055 3322 50  0000 R CNN
+F 2 "" H 3050 3450 50  0001 C CNN
+F 3 "" H 3050 3450 50  0001 C CNN
+	1    3050 3450
+	0    1    1    0   
+$EndComp
+$Comp
+L power:GND #PWR0115
+U 1 1 61DE66CE
+P 4150 2750
+F 0 "#PWR0115" H 4150 2500 50  0001 C CNN
+F 1 "GND" V 4155 2622 50  0000 R CNN
+F 2 "" H 4150 2750 50  0001 C CNN
+F 3 "" H 4150 2750 50  0001 C CNN
+	1    4150 2750
+	0    -1   -1   0   
+$EndComp
+$Comp
+L power:GND #PWR0116
+U 1 1 61DE6F7B
+P 4150 2850
+F 0 "#PWR0116" H 4150 2600 50  0001 C CNN
+F 1 "GND" V 4155 2722 50  0000 R CNN
+F 2 "" H 4150 2850 50  0001 C CNN
+F 3 "" H 4150 2850 50  0001 C CNN
+	1    4150 2850
+	0    -1   -1   0   
+$EndComp
+NoConn ~ 4150 2950
+NoConn ~ 4150 2650
+NoConn ~ 4150 3350
+NoConn ~ 4150 3250
+$Comp
+L Switch:SW_Push SW1
+U 1 1 61DE7D8B
+P 4700 3150
+F 0 "SW1" H 4700 3350 50  0000 C CNN
+F 1 "SW_Push" H 4700 3450 50  0000 C CNN
+F 2 "Button_Switch_SMD:SW_Push_1P1T_NO_6x6mm_H9.5mm" H 4700 3350 50  0001 C CNN
+F 3 "~" H 4700 3350 50  0001 C CNN
+	1    4700 3150
+	-1   0    0    1   
+$EndComp
+Wire Wire Line
+	4150 3150 4500 3150
+Wire Wire Line
+	4900 3150 5250 3150
+Wire Wire Line
+	5250 3150 5250 3250
+$Comp
+L power:GND #PWR0117
+U 1 1 61DEA80B
+P 5250 3250
+F 0 "#PWR0117" H 5250 3000 50  0001 C CNN
+F 1 "GND" H 5255 3077 50  0000 C CNN
+F 2 "" H 5250 3250 50  0001 C CNN
+F 3 "" H 5250 3250 50  0001 C CNN
+	1    5250 3250
+	1    0    0    -1  
+$EndComp
+Text Label 2100 5600 1    50   ~ 0
+RED_PWM
+Text Label 3150 5600 1    50   ~ 0
+GREEN_PWM
+Text Label 4250 5600 1    50   ~ 0
+BLUE_PWM
+Text Label 2900 2200 2    50   ~ 0
+BLUE_PWM
+Wire Wire Line
+	2900 2200 3050 2200
+Text Label 2900 3050 2    50   ~ 0
+GREEN_PWM
+Wire Wire Line
+	2900 3050 3050 3050
+Text Label 2900 3250 2    50   ~ 0
+RED_PWM
+Wire Wire Line
+	2900 3250 3050 3250
+Text Label 4350 2400 0    50   ~ 0
+ADC_IN
+Wire Wire Line
+	4150 2400 4350 2400
+Text Label 2100 3500 0    50   ~ 0
+ADC_IN
+Text Label 2100 2450 0    50   ~ 0
+ADC_IN
+Wire Wire Line
+	2100 2450 2000 2450
+Wire Wire Line
+	2100 3500 2000 3500
+Wire Wire Line
+	2000 3350 3050 3350
+Text Label 2100 3650 0    50   ~ 0
+AR_ADJUST
+Wire Wire Line
+	2100 3650 2000 3650
+Text Label 2900 1900 2    50   ~ 0
+AR_ADJUST
+Wire Wire Line
+	2900 1900 3050 1900
+NoConn ~ 3050 2000
+NoConn ~ 3050 2850
+NoConn ~ 3050 2950
+NoConn ~ 3050 3150
+NoConn ~ 3050 3550
+NoConn ~ 3050 3650
+NoConn ~ 3050 3750
+NoConn ~ 4150 1900
+NoConn ~ 4150 2000
+NoConn ~ 4150 2100
+NoConn ~ 4150 2200
+NoConn ~ 4150 2300
+Wire Notes Line
+	1250 5000 4650 5000
+Wire Notes Line
+	4650 5000 4650 6950
+Wire Notes Line
+	4650 6950 1250 6950
+Wire Notes Line
+	1250 6950 1250 5000
+Text Notes 1250 4950 0    50   ~ 0
+Output stage
+Wire Notes Line
+	1250 1400 5550 1400
+Wire Notes Line
+	5550 1400 5550 3950
+Wire Notes Line
+	5550 3950 1250 3950
+Wire Notes Line
+	1250 3950 1250 1400
+Wire Notes Line
+	6300 1400 6300 2450
+Wire Notes Line
+	8350 2450 8350 1400
+Wire Notes Line
+	8350 1400 6300 1400
+Wire Notes Line
+	6300 2450 8350 2450
+Text Notes 1250 1350 0    50   ~ 0
+FRDM-KL03Z and Microphone\n
+Text Notes 6300 1350 0    50   ~ 0
+12V power supply\n\n
+$EndSCHEMATC
