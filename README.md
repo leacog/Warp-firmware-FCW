@@ -30,7 +30,9 @@ KiCad PCB project files are included in the repo. Note that they are designed fo
 
 <p align="center">
   <img src="images/4B25_LitShield.jpg" width="55%">
-  <img src="images/schematic.jpg" width="42%" alt="Schematic">
+  <a href="https://github.com/leacog/Warp-firmware-FCW/images/schematic.pdf">
+  <img src="images/schematic.JPG" width="42%" alt="Schematic">
+  </a>
 </p>
 
 ## FRDM-KL03Z Firmware
@@ -53,7 +55,7 @@ To extract frequency information, a discrete fourier transform is computed on th
 
 * **The [twiddle factors](https://en.wikipedia.org/wiki/Twiddle\_factor) are precomputed**. This avoids any computation of trigonometric quantities at run-time. Similarly (although much less critical), the bit reversal is also implemented using a look-up table instead of by bit operations. To generate the twiddle factors and bitReverse arrays, the python command line scripts <code> [twiddle_FPA.py](src\boot\ksdk1.1.0\FFT.c)</code> and <code> [bitReverse.py](src\boot\ksdk1.1.0\FFT.c)</code> are provided under <code>/pythonScripts</code>.
 
-* **Divides and multiplications are implemented as shifts**.  As the MCU lacks a Floating Point Unit, the twiddle factors which lie between 1 and -1 are implemented using Fixed Point Arithmetic. A twiddle factor of 1 is represented by 32768 in the FPA arithmatic. After multiplying by the twiddle factors, the result needs to be normalized down again to prevent overflows. This is why 1 is mapped to a power of 2, so that the normalization can be achived by shifting rather than by division. From practical tests, a divide by e.g. 1000 on an <code>int32_t</code> is about 30 times slower than a right shift operation. After many trials using <code>memcpy()</code> to implement fast divisions of signed integers, I found out that the compiler automatically recognizes division by powers of two and implements them as shifts - even with signed numbers where the signbit needs to be considered.
+* **Divides and multiplications are implemented as shifts**.  As the MCU lacks a Floating Point Unit, the twiddle factors which lie between 1 and -1 are implemented using Fixed Point Arithmetic. A twiddle factor of 1 is represented by 32768 in the FPA arithmatic. After multiplying by the twiddle factors, the result needs to be normalized down again to prevent overflows. This is why 1 is mapped to a power of 2, so that the normalization can be achived by shifting rather than by division. From practical tests, a divide by e.g. 1000 on an <code>int32_t</code> is about 30 times slower than a right shift operation. After many trials using <code>memcpy()</code> to implement fast divisions of signed integers, I found out that the compiler automatically recognizes division by powers of two and implements them as shifts -even with signed numbers where the signbit needs to be considered.
 
 * **Bit Reversal and FFT buffers never co-exist on the stack**. To minimize the peak demand on the stack, the sample re-ordering via bit-reversal which is required at the start of the FFT is executed before the complex array is placed on the stack. This way the two arrays never co-exist on the stack. The maximum demand comes from the complex array, which is $N \times 2 \times$ <code>sizeof(int16_t)</code> of memory on the stack (514 Bytes for 128 point FFT). Still, to accomodate the high memory demand, the default Warp linker script is modified to increase maximum size of the stack, and several modifications to the Warp firmware minimize the RAM usage (which leaves more space for the stack).
 
